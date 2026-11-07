@@ -6,12 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     let ringState = RingState()
     let eventTapManager = EventTapManager()
     private var overlayPanel: OverlayPanel?
+    private var settingsWindow: NSWindow?
     private var permissionTimer: Timer?
     
     var isTapActive: Bool = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Empêche toute apparition dans le Dock ou Cmd+Tab
         NSApp.setActivationPolicy(.accessory)
         
         setupOverlayPanel()
@@ -25,6 +25,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         self.overlayPanel = panel
     }
     
+    func openSettingsWindow() {
+        if settingsWindow == nil {
+            let hostingController = NSHostingController(rootView: SettingsView(store: ProfileStore.shared))
+            let window = NSWindow(contentViewController: hostingController)
+            window.title = "Indxe — Configuration des Menus Radiaux"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.setContentSize(NSSize(width: 900, height: 600))
+            window.center()
+            window.isReleasedWhenClosed = false
+            self.settingsWindow = window
+        }
+        
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+    
     func checkPermissionsAndStartTap() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
@@ -35,7 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
             eventTapManager.delegate = self
             isTapActive = eventTapManager.start()
         } else {
-            // Polling toutes les 2 secondes jusqu'à ce que l'utilisateur coche la case dans Réglages Système
             if permissionTimer == nil {
                 permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
@@ -62,7 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     
     func eventTapDidMoveCursor(to screenPoint: CGPoint) {
         guard ringState.isVisible else { return }
-        ringState.updateCursorPosition(screenPoint)
+        let shouldCommitImmediately = ringState.updateCursorPosition(screenPoint)
+        if shouldCommitImmediately {
+            eventTapManager.endActiveSessionImmediately()
+            eventTapDidTriggerCommit()
+        }
     }
     
     func eventTapDidTriggerCommit() {
@@ -78,5 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
             let chosenSlice = slices[idx]
             ActionExecutor.execute(chosenSlice)
         }
+    }
+    
+    func eventTapDidCancel() {
+        ringState.isVisible = false
+        overlayPanel?.orderOut(nil)
     }
 }

@@ -11,11 +11,16 @@ struct IndxeApp: App {
                 Text("Indxe — Actions Ring")
                     .font(.headline)
                 
-                Divider()
-                
-                Text("Déclencheur : Clic Milieu, Boutons Souris 4/5 ou ⌥ + Clic Droit")
+                Text("Clic Droit + Glisser → Relâcher sur l'option")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                
+                Divider()
+                
+                Button("Configurer les Applications et Menus...") {
+                    appDelegate.openSettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: [.command])
                 
                 Divider()
                 

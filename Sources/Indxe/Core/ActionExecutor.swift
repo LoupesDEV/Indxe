@@ -4,15 +4,14 @@ import AppKit
 
 enum ActionExecutor {
     static func execute(_ slice: RadialSlice) {
-        switch slice.payload {
-        case let .keyShortcut(keyCode, flags):
-            postKeyStroke(keyCode: keyCode, flags: flags)
-        case let .shellCommand(command):
-            runShellCommand(command)
-        case let .appleScript(source):
-            runAppleScript(source)
-        case let .custom(handler):
-            handler()
+        let payload = slice.payload
+        switch payload.type {
+        case .keyShortcut:
+            postKeyStroke(keyCode: CGKeyCode(payload.keyCode), flags: payload.cgFlags)
+        case .shellCommand:
+            runShellCommand(payload.scriptOrCommand)
+        case .appleScript:
+            runAppleScript(payload.scriptOrCommand)
         }
     }
     
@@ -32,6 +31,7 @@ enum ActionExecutor {
     }
     
     private static func runShellCommand(_ command: String) {
+        guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -41,6 +41,7 @@ enum ActionExecutor {
     }
     
     private static func runAppleScript(_ source: String) {
+        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             var error: NSDictionary?
             if let script = NSAppleScript(source: source) {

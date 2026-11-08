@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     }
     
     private func setupOverlayPanel() {
-        let rect = NSRect(x: 0, y: 0, width: 340, height: 340)
+        let rect = NSRect(x: 0, y: 0, width: 320, height: 320)
         let rootView = RadialMenuView(state: ringState)
         let panel = OverlayPanel(contentRect: rect, rootView: rootView)
         self.overlayPanel = panel
@@ -37,8 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
             window.titlebarAppearsTransparent = true
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             window.appearance = NSAppearance(named: .darkAqua)
-            window.backgroundColor = NSColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1.0)
-            window.setContentSize(NSSize(width: 1140, height: 700))
+            window.backgroundColor = NSColor(red: 0.05, green: 0.07, blue: 0.09, alpha: 1.0)
+            window.setContentSize(NSSize(width: 720, height: 500))
             window.center()
             window.isReleasedWhenClosed = false
             self.settingsWindow = window

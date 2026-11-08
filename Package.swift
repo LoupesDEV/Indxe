@@ -13,6 +13,11 @@ let package = Package(
         .executableTarget(
             name: "Indxe",
             path: "Sources/Indxe"
+        ),
+        .testTarget(
+            name: "IndxeTests",
+            dependencies: ["Indxe"],
+            path: "Sources/IndxeTests"
         )
     ]
 )

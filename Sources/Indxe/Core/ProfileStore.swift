@@ -47,7 +47,15 @@ final class ProfileStore {
         if let data = try? Data(contentsOf: storageURL),
            let decoded = try? JSONDecoder().decode([AppProfile].self, from: data),
            !decoded.isEmpty {
-            self.profiles = decoded
+            var normalizedProfiles = decoded
+            if let globalIndex = normalizedProfiles.firstIndex(where: { $0.bundleIdentifier == AppProfile.globalBundleID }),
+               normalizedProfiles[globalIndex].displayName != "Global" {
+                normalizedProfiles[globalIndex].displayName = "Global"
+                self.profiles = normalizedProfiles
+                save()
+            } else {
+                self.profiles = normalizedProfiles
+            }
             mergeMissingDefaultProfiles()
         } else {
             self.profiles = Self.defaultSeedProfiles()
@@ -134,7 +142,7 @@ final class ProfileStore {
     
     static let defaultGlobalProfile = AppProfile(
         bundleIdentifier: AppProfile.globalBundleID,
-        displayName: "Global macOS",
+        displayName: "Global",
         appPath: nil,
         slices: [
             RadialSlice(title: "Copier", systemImage: "doc.on.doc.fill", accentColorHex: 0x3B82F6,
@@ -156,7 +164,7 @@ final class ProfileStore {
         [
             defaultGlobalProfile,
             
-            // 1. Finder
+            // Finder
             AppProfile(
                 bundleIdentifier: "com.apple.finder",
                 displayName: "Finder",
@@ -176,29 +184,8 @@ final class ProfileStore {
                                 payload: .shortcut(keyCode: kVK_ANSI_Period, flags: [.maskCommand, .maskShift]))
                 ]
             ),
-            
-            // 2. Xcode
-            AppProfile(
-                bundleIdentifier: "com.apple.dt.Xcode",
-                displayName: "Xcode",
-                appPath: "/Applications/Xcode.app",
-                slices: [
-                    RadialSlice(title: "Build", systemImage: "hammer.fill", accentColorHex: 0x3B82F6,
-                                payload: .shortcut(keyCode: kVK_ANSI_B, flags: .maskCommand)),
-                    RadialSlice(title: "Run", systemImage: "play.fill", accentColorHex: 0x10B981,
-                                payload: .shortcut(keyCode: kVK_ANSI_R, flags: .maskCommand)),
-                    RadialSlice(title: "Clean Build", systemImage: "trash.fill", accentColorHex: 0xEF4444,
-                                payload: .shortcut(keyCode: kVK_ANSI_K, flags: [.maskCommand, .maskShift])),
-                    RadialSlice(title: "Open Quickly", systemImage: "magnifyingglass", accentColorHex: 0xF59E0B,
-                                payload: .shortcut(keyCode: kVK_ANSI_O, flags: [.maskCommand, .maskShift])),
-                    RadialSlice(title: "Console", systemImage: "terminal.fill", accentColorHex: 0x8B5CF6,
-                                payload: .shortcut(keyCode: kVK_ANSI_Y, flags: [.maskCommand, .maskShift])),
-                    RadialSlice(title: "Tests", systemImage: "checkmark.diamond.fill", accentColorHex: 0x14B8A6,
-                                payload: .shortcut(keyCode: kVK_ANSI_U, flags: .maskCommand))
-                ]
-            ),
-            
-            // 3. VS Code
+
+            // VS Code
             AppProfile(
                 bundleIdentifier: "com.microsoft.VSCode",
                 displayName: "VS Code",
@@ -240,28 +227,7 @@ final class ProfileStore {
                 ]
             ),
             
-            // 5. Arc Browser
-            AppProfile(
-                bundleIdentifier: "company.thebrowser.Browser",
-                displayName: "Arc",
-                appPath: "/Applications/Arc.app",
-                slices: [
-                    RadialSlice(title: "Barre Cmd", systemImage: "command", accentColorHex: 0xDC2626,
-                                payload: .shortcut(keyCode: kVK_ANSI_T, flags: .maskCommand)),
-                    RadialSlice(title: "Split View", systemImage: "rectangle.split.2x1", accentColorHex: 0x10B981,
-                                payload: .shortcut(keyCode: kVK_ANSI_Equal, flags: [.maskControl, .maskShift])),
-                    RadialSlice(title: "Copier URL", systemImage: "link", accentColorHex: 0x3B82F6,
-                                payload: .shortcut(keyCode: kVK_ANSI_C, flags: [.maskCommand, .maskShift])),
-                    RadialSlice(title: "Archiver Onglet", systemImage: "xmark.square", accentColorHex: 0xEF4444,
-                                payload: .shortcut(keyCode: kVK_ANSI_W, flags: .maskCommand)),
-                    RadialSlice(title: "Sidebar", systemImage: "sidebar.left", accentColorHex: 0x8B5CF6,
-                                payload: .shortcut(keyCode: kVK_ANSI_S, flags: .maskCommand)),
-                    RadialSlice(title: "DevTools", systemImage: "hammer.fill", accentColorHex: 0xF59E0B,
-                                payload: .shortcut(keyCode: kVK_ANSI_I, flags: [.maskCommand, .maskAlternate]))
-                ]
-            ),
-            
-            // 6. Terminal macOS
+            // Terminal macOS
             AppProfile(
                 bundleIdentifier: "com.apple.Terminal",
                 displayName: "Terminal",
@@ -282,26 +248,7 @@ final class ProfileStore {
                 ]
             ),
             
-            // 7. iTerm2
-            AppProfile(
-                bundleIdentifier: "com.googlecode.iterm2",
-                displayName: "iTerm2",
-                appPath: "/Applications/iTerm.app",
-                slices: [
-                    RadialSlice(title: "Split Vert.", systemImage: "rectangle.split.2x1", accentColorHex: 0x10B981,
-                                payload: .shortcut(keyCode: kVK_ANSI_D, flags: .maskCommand)),
-                    RadialSlice(title: "Split Horiz.", systemImage: "rectangle.split.1x2", accentColorHex: 0x3B82F6,
-                                payload: .shortcut(keyCode: kVK_ANSI_D, flags: [.maskCommand, .maskShift])),
-                    RadialSlice(title: "Clear Buffer", systemImage: "sparkles", accentColorHex: 0xF59E0B,
-                                payload: .shortcut(keyCode: kVK_ANSI_K, flags: .maskCommand)),
-                    RadialSlice(title: "Nouvel Onglet", systemImage: "plus.square", accentColorHex: 0x8B5CF6,
-                                payload: .shortcut(keyCode: kVK_ANSI_T, flags: .maskCommand)),
-                    RadialSlice(title: "Fermer Pane", systemImage: "xmark.circle", accentColorHex: 0xEF4444,
-                                payload: .shortcut(keyCode: kVK_ANSI_W, flags: .maskCommand))
-                ]
-            ),
-            
-            // 8. Spotify
+            // Spotify
             AppProfile(
                 bundleIdentifier: "com.spotify.client",
                 displayName: "Spotify",
@@ -322,7 +269,7 @@ final class ProfileStore {
                 ]
             ),
             
-            // 9. Discord
+            // Discord
             AppProfile(
                 bundleIdentifier: "com.hnc.Discord",
                 displayName: "Discord",
@@ -338,6 +285,27 @@ final class ProfileStore {
                                 payload: .shortcut(keyCode: kVK_Escape, flags: .maskShift)),
                     RadialSlice(title: "Émojis", systemImage: "face.smiling.fill", accentColorHex: 0xF59E0B,
                                 payload: .shortcut(keyCode: kVK_ANSI_E, flags: .maskCommand))
+                ]
+            ),
+
+            // Deezer
+            AppProfile(
+                bundleIdentifier: "com.deezer.Deezer",
+                displayName: "Deezer",
+                appPath: "/Applications/Deezer.app",
+                slices: [
+                    RadialSlice(title: "Play / Pause", systemImage: "playpause.fill", accentColorHex: 0x10B981,
+                                payload: .shortcut(keyCode: kVK_Space, flags: [])),
+                    RadialSlice(title: "Suivant", systemImage: "forward.end.fill", accentColorHex: 0x3B82F6,
+                                payload: .shortcut(keyCode: kVK_RightArrow, flags: .maskCommand)),
+                    RadialSlice(title: "Volume +", systemImage: "speaker.wave.3.fill", accentColorHex: 0xF59E0B,
+                                payload: .shortcut(keyCode: kVK_UpArrow, flags: .maskCommand)),
+                    RadialSlice(title: "Volume -", systemImage: "speaker.wave.1.fill", accentColorHex: 0x8B5CF6,
+                                payload: .shortcut(keyCode: kVK_DownArrow, flags: .maskCommand)),
+                    RadialSlice(title: "Précédent", systemImage: "backward.end.fill", accentColorHex: 0xEC4899,
+                                payload: .shortcut(keyCode: kVK_LeftArrow, flags: .maskCommand)),
+                    RadialSlice(title: "Rechercher", systemImage: "magnifyingglass", accentColorHex: 0x14B8A6,
+                                payload: .shortcut(keyCode: kVK_ANSI_L, flags: .maskCommand))
                 ]
             )
         ]

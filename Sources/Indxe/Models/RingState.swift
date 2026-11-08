@@ -11,10 +11,11 @@ final class RingState {
     var activeProfile: AppProfile = ProfileStore.defaultGlobalProfile
     var selectedIndex: Int? = nil
     
-    let deadZoneRadius: CGFloat = 38.0
+    /// Rayon central d'annulation réduit à 28pt pour sélectionner une tranche très rapidement
+    let deadZoneRadius: CGFloat = 28.0
     let outerRadius: CGFloat = 135.0
-    /// Rayon au-delà duquel le mode "Exécution instantanée au survol" valide automatiquement l'option
-    let instantTriggerRadius: CGFloat = 82.0
+    /// Rayon au-delà duquel le mode "Exécution instantanée au survol" déclenche l'option
+    let instantTriggerRadius: CGFloat = 78.0
     
     var currentDistance: CGFloat {
         let dx = currentMouseScreenPoint.x - centerScreenPoint.x
@@ -36,7 +37,6 @@ final class RingState {
         return degrees
     }
     
-    /// Met à jour l'angle et retourne `true` si l'exécution instantanée au glissement doit être déclenchée
     @discardableResult
     func updateCursorPosition(_ screenPoint: CGPoint) -> Bool {
         self.currentMouseScreenPoint = screenPoint

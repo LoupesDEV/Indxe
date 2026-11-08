@@ -71,10 +71,10 @@ struct RadialRingCanvas: View {
         let hubAccent = Color(hex: theme.overrideAccentHex ?? 0xDC2626)
         
         ZStack {
-            // Halo de contour extérieur subtil
+            // Cercle de calibration extérieur
             Circle()
-                .strokeBorder(baseText.opacity(0.08), lineWidth: 1)
-                .frame(width: outerRadius * 2 + 12, height: outerRadius * 2 + 12)
+                .strokeBorder(baseText.opacity(0.12), style: StrokeStyle(lineWidth: 0.75, dash: [2, 4]))
+                .frame(width: outerRadius * 2 + 14, height: outerRadius * 2 + 14)
             
             ForEach(Array(slices.enumerated()), id: \.element.id) { index, slice in
                 let isSelected = (selectedIndex == index)
@@ -91,84 +91,87 @@ struct RadialRingCanvas: View {
                     AnnularSectorShape(
                         startAngle: .degrees(startDeg),
                         endAngle: .degrees(endDeg),
-                        innerRadius: deadZoneRadius + 6,
+                        innerRadius: deadZoneRadius + 4,
                         outerRadius: currentOuter
                     )
-                    .fill(isSelected ? activeFill.opacity(0.95) : inactiveFill.opacity(0.92))
+                    .fill(isSelected ? activeFill : inactiveFill.opacity(0.95))
                     .overlay(
                         AnnularSectorShape(
                             startAngle: .degrees(startDeg),
                             endAngle: .degrees(endDeg),
-                            innerRadius: deadZoneRadius + 6,
+                            innerRadius: deadZoneRadius + 4,
                             outerRadius: currentOuter
                         )
                         .stroke(
-                            isSelected ? baseText.opacity(0.9) : baseText.opacity(theme.borderOpacity),
-                            lineWidth: isSelected ? 1.8 : 1.0
+                            isSelected ? activeFill : baseText.opacity(theme.borderOpacity),
+                            lineWidth: isSelected ? 1.5 : 0.75
                         )
                     )
                     
-                    // Petit indicateur coloré discret quand le thème est monochrome mais que la tranche a sa propre couleur
-                    let midRadius = (deadZoneRadius + 6 + currentOuter) / 2.0
+                    let midRadius = (deadZoneRadius + 4 + currentOuter) / 2.0
                     let rad = centerDeg * .pi / 180.0
                     let iconX = cos(rad) * midRadius
                     let iconY = sin(rad) * midRadius
                     
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: slice.systemImage)
-                            .font(.system(size: isSelected ? 20 : 17, weight: .semibold))
-                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.88))
+                            .font(.system(size: isSelected ? 17 : 15, weight: .medium))
+                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.90))
                         
-                        Text(slice.title)
-                            .font(.system(
-                                size: 10,
-                                weight: isSelected ? .bold : .medium,
-                                design: theme == .terminalMatrix || theme == .swissMinimal ? .monospaced : .rounded
-                            ))
-                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.68))
+                        Text(slice.title.uppercased())
+                            .font(.system(size: 8.5, weight: isSelected ? .bold : .semibold, design: .monospaced))
+                            .tracking(0.4)
+                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.60))
                             .lineLimit(1)
                     }
                     .offset(x: iconX, y: iconY)
                 }
-                .animation(.spring(response: 0.16, dampingFraction: 0.76), value: selectedIndex)
+                .animation(.easeOut(duration: 0.10), value: selectedIndex)
             }
             
-            // Noyau HUD Central
+            // Noyau Central Télémétrique
             ZStack {
                 Circle()
-                    .fill(Color(hex: theme.centerHubHex).opacity(0.96))
+                    .fill(Color(hex: theme.centerHubHex))
                     .frame(width: deadZoneRadius * 2, height: deadZoneRadius * 2)
                     .overlay(
                         Circle()
                             .strokeBorder(
-                                selectedIndex != nil ? hubAccent.opacity(0.85) : baseText.opacity(0.22),
-                                lineWidth: 1.5
+                                selectedIndex != nil ? hubAccent : baseText.opacity(0.25),
+                                lineWidth: 1.0
                             )
                     )
                 
-                VStack(spacing: 1) {
-                    if let idx = selectedIndex, idx < slices.count {
+                if let idx = selectedIndex, idx < slices.count {
+                    VStack(spacing: 1) {
+                        Text(String(format: "0%d", idx + 1))
+                            .font(.system(size: 7.5, weight: .regular, design: .monospaced))
+                            .foregroundStyle(baseText.opacity(0.45))
                         Text(slices[idx].payload.humanReadableShortcut)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                             .foregroundStyle(hubAccent)
                             .lineLimit(1)
-                    } else {
-                        Text(profile.displayName.uppercased())
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(baseText.opacity(0.75))
-                            .lineLimit(1)
+                    }
+                } else {
+                    // Réticule central minimaliste au repos
+                    ZStack {
+                        Rectangle()
+                            .fill(baseText.opacity(0.3))
+                            .frame(width: 8, height: 0.75)
+                        Rectangle()
+                            .fill(baseText.opacity(0.3))
+                            .frame(width: 0.75, height: 8)
                     }
                 }
-                .frame(width: deadZoneRadius * 1.75)
             }
             
-            // Curseur orbital sur le périmètre de la deadzone
+            // Vecteur d'angle sur le périmètre interne
             if let angleDeg = currentAngleDegrees {
                 let indicatorRad = (angleDeg - 90.0) * .pi / 180.0
-                let r = deadZoneRadius + 1
+                let r = deadZoneRadius
                 Circle()
                     .fill(hubAccent)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 4.5, height: 4.5)
                     .offset(x: cos(indicatorRad) * r, y: sin(indicatorRad) * r)
             }
         }

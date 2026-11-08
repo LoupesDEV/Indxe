@@ -1,7 +1,9 @@
 import AppKit
 import SwiftUI
 import ApplicationServices
+import Observation
 
+@Observable
 final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     let ringState = RingState()
     let eventTapManager = EventTapManager()
@@ -14,8 +16,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
+        // Réinitialise l'enregistrement d'événement par défaut pour s'assurer que le mode survol est actif
+        UserDefaults.standard.register(defaults: [
+            "instantHoverTrigger": true,
+            "allowQuickRightClickPassThrough": false
+        ])
+        
         setupOverlayPanel()
-        checkPermissionsAndStartTap()
+        checkPermissionsAndStartTap(promptIfNeeded: true)
+        startHealthCheckTimer()
     }
     
     private func setupOverlayPanel() {
@@ -41,24 +50,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
     
-    func checkPermissionsAndStartTap() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
+    func checkPermissionsAndStartTap(promptIfNeeded: Bool = false) {
+        eventTapManager.delegate = self
         
-        if trusted {
-            permissionTimer?.invalidate()
-            permissionTimer = nil
-            eventTapManager.delegate = self
-            isTapActive = eventTapManager.start()
-        } else {
-            if permissionTimer == nil {
-                permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-                    guard let self = self else { return }
-                    if AXIsProcessTrusted() {
-                        self.checkPermissionsAndStartTap()
-                    }
-                }
+        // On tente d'abord de démarrer le CGEventTap directement
+        if eventTapManager.start() {
+            isTapActive = true
+            return
+        }
+        
+        isTapActive = false
+        if promptIfNeeded {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+        }
+    }
+    
+    private func startHealthCheckTimer() {
+        permissionTimer?.invalidate()
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let currentlyRunning = self.eventTapManager.isRunning
+            if currentlyRunning != self.isTapActive {
+                self.isTapActive = currentlyRunning
             }
+            if !currentlyRunning && AXIsProcessTrusted() {
+                self.isTapActive = self.eventTapManager.start()
+            }
+        }
+    }
+    
+    /// Purge l'entrée TCC obsolète (causée par un rebuild) et redemande proprement la permission à macOS
+    func resetTCCPermissions() {
+        eventTapManager.stop()
+        isTapActive = false
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.cyrex.Indxe"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Accessibility", bundleId]
+        try? process.run()
+        process.waitUntilExit()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.checkPermissionsAndStartTap(promptIfNeeded: true)
         }
     }
     

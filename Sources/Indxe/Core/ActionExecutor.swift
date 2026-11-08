@@ -16,18 +16,28 @@ enum ActionExecutor {
     }
     
     private static func postKeyStroke(keyCode: CGKeyCode, flags: CGEventFlags) {
-        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
-        
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
-            return
+        // Léger délai de 20ms pour laisser le NSPanel se fermer complètement et aux boutons souris de se relâcher
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+            guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
+            
+            guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+                  let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
+                return
+            }
+            
+            // Nettoie tout flag parasite (ex: bouton souris) et applique uniquement les modificateurs voulus
+            let cleanMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+            let filteredFlags = flags.intersection(cleanMask)
+            
+            keyDown.flags = filteredFlags
+            keyUp.flags = filteredFlags
+            
+            keyDown.post(tap: .cgSessionEventTap)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) {
+                keyUp.post(tap: .cgSessionEventTap)
+            }
         }
-        
-        keyDown.flags = flags
-        keyUp.flags = flags
-        
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
     }
     
     private static func runShellCommand(_ command: String) {

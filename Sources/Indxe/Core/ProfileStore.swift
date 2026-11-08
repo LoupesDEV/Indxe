@@ -249,7 +249,7 @@ final class ProfileStore {
                     RadialSlice(title: "Barre Cmd", systemImage: "command", accentColorHex: 0xDC2626,
                                 payload: .shortcut(keyCode: kVK_ANSI_T, flags: .maskCommand)),
                     RadialSlice(title: "Split View", systemImage: "rectangle.split.2x1", accentColorHex: 0x10B981,
-                                payload: .shortcut(keyCode: kVK_ANSI_Plus, flags: [.maskControl, .maskShift])),
+                                payload: .shortcut(keyCode: kVK_ANSI_Equal, flags: [.maskControl, .maskShift])),
                     RadialSlice(title: "Copier URL", systemImage: "link", accentColorHex: 0x3B82F6,
                                 payload: .shortcut(keyCode: kVK_ANSI_C, flags: [.maskCommand, .maskShift])),
                     RadialSlice(title: "Archiver Onglet", systemImage: "xmark.square", accentColorHex: 0xEF4444,

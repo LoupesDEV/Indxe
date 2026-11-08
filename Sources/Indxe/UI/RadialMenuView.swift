@@ -34,7 +34,7 @@ struct RadialMenuView: View {
     @Bindable var state: RingState
     var store: ProfileStore = .shared
     
-    private let canvasSize: CGFloat = 340.0
+    private let canvasSize: CGFloat = 320.0
     
     var body: some View {
         ZStack {
@@ -71,11 +71,6 @@ struct RadialRingCanvas: View {
         let hubAccent = Color(hex: theme.overrideAccentHex ?? 0xDC2626)
         
         ZStack {
-            // Cercle de calibration extérieur
-            Circle()
-                .strokeBorder(baseText.opacity(0.12), style: StrokeStyle(lineWidth: 0.75, dash: [2, 4]))
-                .frame(width: outerRadius * 2 + 14, height: outerRadius * 2 + 14)
-            
             ForEach(Array(slices.enumerated()), id: \.element.id) { index, slice in
                 let isSelected = (selectedIndex == index)
                 let centerDeg = Double(index) * sectorStep - 90.0
@@ -91,89 +86,54 @@ struct RadialRingCanvas: View {
                     AnnularSectorShape(
                         startAngle: .degrees(startDeg),
                         endAngle: .degrees(endDeg),
-                        innerRadius: deadZoneRadius + 4,
+                        innerRadius: deadZoneRadius + 5,
                         outerRadius: currentOuter
                     )
-                    .fill(isSelected ? activeFill : inactiveFill.opacity(0.95))
+                    .fill(isSelected ? activeFill : inactiveFill.opacity(0.94))
                     .overlay(
                         AnnularSectorShape(
                             startAngle: .degrees(startDeg),
                             endAngle: .degrees(endDeg),
-                            innerRadius: deadZoneRadius + 4,
+                            innerRadius: deadZoneRadius + 5,
                             outerRadius: currentOuter
                         )
                         .stroke(
                             isSelected ? activeFill : baseText.opacity(theme.borderOpacity),
-                            lineWidth: isSelected ? 1.5 : 0.75
+                            lineWidth: 1.0
                         )
                     )
                     
-                    let midRadius = (deadZoneRadius + 4 + currentOuter) / 2.0
+                    let midRadius = (deadZoneRadius + 5 + currentOuter) / 2.0
                     let rad = centerDeg * .pi / 180.0
                     let iconX = cos(rad) * midRadius
                     let iconY = sin(rad) * midRadius
                     
-                    VStack(spacing: 3) {
+                    VStack(spacing: 4) {
                         Image(systemName: slice.systemImage)
-                            .font(.system(size: isSelected ? 17 : 15, weight: .medium))
-                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.90))
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.9))
                         
-                        Text(slice.title.uppercased())
-                            .font(.system(size: 8.5, weight: isSelected ? .bold : .semibold, design: .monospaced))
-                            .tracking(0.4)
-                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.60))
+                        Text(slice.title)
+                            .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
+                            .foregroundStyle(isSelected ? selectedFg : baseText.opacity(0.65))
                             .lineLimit(1)
                     }
                     .offset(x: iconX, y: iconY)
                 }
-                .animation(.easeOut(duration: 0.10), value: selectedIndex)
+                .animation(.easeOut(duration: 0.12), value: selectedIndex)
             }
             
-            // Noyau Central Télémétrique
-            ZStack {
-                Circle()
-                    .fill(Color(hex: theme.centerHubHex))
-                    .frame(width: deadZoneRadius * 2, height: deadZoneRadius * 2)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(
-                                selectedIndex != nil ? hubAccent : baseText.opacity(0.25),
-                                lineWidth: 1.0
-                            )
-                    )
-                
-                if let idx = selectedIndex, idx < slices.count {
-                    VStack(spacing: 1) {
-                        Text(String(format: "0%d", idx + 1))
-                            .font(.system(size: 7.5, weight: .regular, design: .monospaced))
-                            .foregroundStyle(baseText.opacity(0.45))
-                        Text(slices[idx].payload.humanReadableShortcut)
-                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                            .foregroundStyle(hubAccent)
-                            .lineLimit(1)
-                    }
-                } else {
-                    // Réticule central minimaliste au repos
-                    ZStack {
-                        Rectangle()
-                            .fill(baseText.opacity(0.3))
-                            .frame(width: 8, height: 0.75)
-                        Rectangle()
-                            .fill(baseText.opacity(0.3))
-                            .frame(width: 0.75, height: 8)
-                    }
-                }
-            }
-            
-            // Vecteur d'angle sur le périmètre interne
-            if let angleDeg = currentAngleDegrees {
-                let indicatorRad = (angleDeg - 90.0) * .pi / 180.0
-                let r = deadZoneRadius
-                Circle()
-                    .fill(hubAccent)
-                    .frame(width: 4.5, height: 4.5)
-                    .offset(x: cos(indicatorRad) * r, y: sin(indicatorRad) * r)
-            }
+            // Centre épuré
+            Circle()
+                .fill(Color(hex: theme.centerHubHex).opacity(0.95))
+                .frame(width: deadZoneRadius * 2, height: deadZoneRadius * 2)
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            selectedIndex != nil ? hubAccent.opacity(0.8) : baseText.opacity(0.15),
+                            lineWidth: 1.0
+                        )
+                )
         }
     }
 }

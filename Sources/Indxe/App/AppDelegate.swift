@@ -32,9 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         if settingsWindow == nil {
             let hostingController = NSHostingController(rootView: SettingsView(store: ProfileStore.shared))
             let window = NSWindow(contentViewController: hostingController)
-            window.title = "Indxe — Configuration des Menus Radiaux"
-            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            window.setContentSize(NSSize(width: 900, height: 600))
+            window.title = "Indxe Studio"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.backgroundColor = NSColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1.0)
+            window.setContentSize(NSSize(width: 1140, height: 700))
             window.center()
             window.isReleasedWhenClosed = false
             self.settingsWindow = window

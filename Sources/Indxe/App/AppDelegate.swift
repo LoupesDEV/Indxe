@@ -32,11 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         if settingsWindow == nil {
             let hostingController = NSHostingController(rootView: SettingsView(store: ProfileStore.shared))
             let window = NSWindow(contentViewController: hostingController)
-            window.title = "Indxe Studio"
-            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.title = "Indxe"
+            window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             window.appearance = NSAppearance(named: .darkAqua)
-            window.backgroundColor = NSColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1.0)
+            window.backgroundColor = NSColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1.0)
             window.setContentSize(NSSize(width: 1140, height: 700))
             window.center()
             window.isReleasedWhenClosed = false

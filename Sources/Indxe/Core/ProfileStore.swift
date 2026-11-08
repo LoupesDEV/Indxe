@@ -9,13 +9,13 @@ final class ProfileStore {
     
     var profiles: [AppProfile] = []
     
-    /// Si activé, exécute l'action dès que le curseur entre dans une tranche sans même attendre le relâchement du clic
-    var instantHoverTrigger: Bool = false {
+    /// Si activé, exécute l'action dès que le curseur entre dans une tranche sans même attendre de cliquer ou relâcher
+    var instantHoverTrigger: Bool = true {
         didSet { UserDefaults.standard.set(instantHoverTrigger, forKey: "instantHoverTrigger") }
     }
     
-    /// Si activé, un clic droit rapide sur place (< 180ms dans la zone centrale) ouvre le vrai menu contextuel macOS
-    var allowQuickRightClickPassThrough: Bool = true {
+    /// Désactivé par défaut pour remplacer à 100% le clic droit natif macOS
+    var allowQuickRightClickPassThrough: Bool = false {
         didSet { UserDefaults.standard.set(allowQuickRightClickPassThrough, forKey: "allowQuickRightClickPassThrough") }
     }
     
@@ -30,7 +30,9 @@ final class ProfileStore {
         if UserDefaults.standard.object(forKey: "allowQuickRightClickPassThrough") != nil {
             self.allowQuickRightClickPassThrough = UserDefaults.standard.bool(forKey: "allowQuickRightClickPassThrough")
         }
-        self.instantHoverTrigger = UserDefaults.standard.bool(forKey: "instantHoverTrigger")
+        if UserDefaults.standard.object(forKey: "instantHoverTrigger") != nil {
+            self.instantHoverTrigger = UserDefaults.standard.bool(forKey: "instantHoverTrigger")
+        }
         
         load()
     }

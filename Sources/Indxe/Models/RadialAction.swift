@@ -14,68 +14,67 @@ enum RingTheme: String, Codable, CaseIterable, Identifiable {
     
     var displayName: String {
         switch self {
-        case .cyrexCrimson: return "Cyrex Crimson"
-        case .midnightVanilla: return "Midnight Vanilla"
-        case .swissMinimal: return "Swiss Minimal"
-        case .terminalMatrix: return "Terminal HUD"
-        case .frostGlass: return "Chroma Slate"
+        case .cyrexCrimson: return "OBSIDIAN // CRIMSON"
+        case .midnightVanilla: return "MIDNIGHT // VANILLA"
+        case .swissMinimal: return "DIETER // ORANGE"
+        case .terminalMatrix: return "TELEMETRY // HUD"
+        case .frostGlass: return "GRAPHITE // MONO"
         }
     }
     
-    var subtitle: String {
+    var codeName: String {
         switch self {
-        case .cyrexCrimson: return "#0D1117 • #DC2626"
-        case .midnightVanilla: return "#282B4A • #EEEBDA"
-        case .swissMinimal: return "Monochrome • Grille 1px"
-        case .terminalMatrix: return "Télémétrie • #10B981"
-        case .frostGlass: return "Multicolore par tranche"
+        case .cyrexCrimson: return "TH-01"
+        case .midnightVanilla: return "TH-02"
+        case .swissMinimal: return "TH-03"
+        case .terminalMatrix: return "TH-04"
+        case .frostGlass: return "TH-05"
         }
     }
     
     var sliceBackgroundHex: UInt32 {
         switch self {
-        case .cyrexCrimson: return 0x0D1117
+        case .cyrexCrimson: return 0x0A0A0C
         case .midnightVanilla: return 0x282B4A
-        case .swissMinimal: return 0x09090B
-        case .terminalMatrix: return 0x060A08
-        case .frostGlass: return 0x18181B
+        case .swissMinimal: return 0x141413
+        case .terminalMatrix: return 0x070A08
+        case .frostGlass: return 0x121215
         }
     }
     
     var centerHubHex: UInt32 {
         switch self {
-        case .cyrexCrimson: return 0x090C10
+        case .cyrexCrimson: return 0x070709
         case .midnightVanilla: return 0x1E2038
-        case .swissMinimal: return 0x050505
-        case .terminalMatrix: return 0x040705
-        case .frostGlass: return 0x101014
+        case .swissMinimal: return 0x0E0E0D
+        case .terminalMatrix: return 0x040605
+        case .frostGlass: return 0x0A0A0C
         }
     }
     
-    /// Si non-nil, force une couleur de sélection cohérente propre au thème (sinon utilise la couleur de la tranche)
     var overrideAccentHex: UInt32? {
         switch self {
         case .cyrexCrimson: return 0xDC2626
         case .midnightVanilla: return 0xEEEBDA
-        case .swissMinimal: return 0xF4F4F5
+        case .swissMinimal: return 0xEA580C
         case .terminalMatrix: return 0x10B981
-        case .frostGlass: return nil
+        case .frostGlass: return 0xF4F4F5
         }
     }
     
     var primaryTextHex: UInt32 {
         switch self {
         case .midnightVanilla: return 0xEEEBDA
-        case .terminalMatrix: return 0xA7F3D0
-        default: return 0xFFFFFF
+        case .swissMinimal: return 0xE7E5E4
+        case .terminalMatrix: return 0xD1FAE5
+        default: return 0xF4F4F5
         }
     }
     
-    /// Couleur du texte et de l'icône sur la tranche actuellement sélectionnée
     var selectedForegroundHex: UInt32 {
         switch self {
         case .midnightVanilla: return 0x1E2038
-        case .swissMinimal: return 0x09090B
+        case .frostGlass: return 0x09090B
         case .terminalMatrix: return 0x040705
         default: return 0xFFFFFF
         }
@@ -83,33 +82,32 @@ enum RingTheme: String, Codable, CaseIterable, Identifiable {
     
     var borderOpacity: Double {
         switch self {
-        case .swissMinimal: return 0.28
-        case .terminalMatrix: return 0.35
         case .midnightVanilla: return 0.22
-        default: return 0.14
+        case .terminalMatrix: return 0.30
+        default: return 0.16
         }
     }
     
     var gapDegrees: Double {
         switch self {
-        case .swissMinimal: return 1.5
-        case .terminalMatrix: return 4.0
-        default: return 2.8
+        case .frostGlass: return 1.2
+        case .terminalMatrix: return 2.5
+        default: return 1.8
         }
     }
     
     var ringExpansionOnHover: CGFloat {
         switch self {
-        case .swissMinimal: return 4.0
-        default: return 8.0
+        case .frostGlass: return 3.0
+        default: return 5.0
         }
     }
 }
 
 enum ActionPayloadType: String, Codable, CaseIterable, Identifiable {
-    case keyShortcut = "Raccourci Clavier"
-    case shellCommand = "Commande Shell"
-    case appleScript = "AppleScript"
+    case keyShortcut = "KEYBIND"
+    case shellCommand = "EXEC ZSH"
+    case appleScript = "OSASCRIPT"
     
     var id: String { rawValue }
 }
@@ -119,6 +117,27 @@ struct ActionPayload: Codable, Hashable {
     var keyCode: UInt16
     var modifiersRaw: UInt64
     var scriptOrCommand: String
+    
+    init(type: ActionPayloadType, keyCode: UInt16, modifiersRaw: UInt64, scriptOrCommand: String) {
+        self.type = type
+        self.keyCode = keyCode
+        self.modifiersRaw = modifiersRaw
+        self.scriptOrCommand = scriptOrCommand
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawType = (try? container.decode(String.self, forKey: .type)) ?? "KEYBIND"
+        switch rawType {
+        case "Raccourci Clavier", "KEYBIND": self.type = .keyShortcut
+        case "Commande Shell", "EXEC ZSH": self.type = .shellCommand
+        case "AppleScript", "OSASCRIPT": self.type = .appleScript
+        default: self.type = .keyShortcut
+        }
+        self.keyCode = (try? container.decode(UInt16.self, forKey: .keyCode)) ?? 0
+        self.modifiersRaw = (try? container.decode(UInt64.self, forKey: .modifiersRaw)) ?? 0
+        self.scriptOrCommand = (try? container.decode(String.self, forKey: .scriptOrCommand)) ?? ""
+    }
     
     static func shortcut(keyCode: Int, flags: CGEventFlags) -> ActionPayload {
         ActionPayload(
@@ -161,11 +180,11 @@ struct ActionPayload: Codable, Hashable {
             if flags.contains(.maskShift) { parts.append("⇧") }
             if flags.contains(.maskCommand) { parts.append("⌘") }
             parts.append(KeyCodeMapper.string(for: keyCode))
-            return parts.joined()
+            return parts.joined(separator: " ")
         case .shellCommand:
-            return "zsh"
+            return "SH"
         case .appleScript:
-            return "osa"
+            return "OSA"
         }
     }
 }
@@ -236,11 +255,11 @@ enum KeyCodeMapper {
         case kVK_ANSI_Equal: return "="
         case kVK_ANSI_LeftBracket: return "["
         case kVK_ANSI_RightBracket: return "]"
-        case kVK_Space: return "Space"
-        case kVK_Return: return "↩"
-        case kVK_Tab: return "⇥"
-        case kVK_Delete: return "⌫"
-        case kVK_Escape: return "⎋"
+        case kVK_Space: return "SPC"
+        case kVK_Return: return "RET"
+        case kVK_Tab: return "TAB"
+        case kVK_Delete: return "DEL"
+        case kVK_Escape: return "ESC"
         case kVK_LeftArrow: return "←"
         case kVK_RightArrow: return "→"
         case kVK_UpArrow: return "↑"
@@ -257,7 +276,7 @@ enum KeyCodeMapper {
         case kVK_F10: return "F10"
         case kVK_F11: return "F11"
         case kVK_F12: return "F12"
-        default: return "Key(\(keyCode))"
+        default: return "K\(keyCode)"
         }
     }
 }

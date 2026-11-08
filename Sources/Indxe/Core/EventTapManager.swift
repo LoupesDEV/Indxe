@@ -18,23 +18,29 @@ final class EventTapManager {
     fileprivate var isMenuCurrentlyActive: Bool = false
     fileprivate var pressTimestamp: TimeInterval = 0
     fileprivate var initialPressLocation: CGPoint = .zero
-    fileprivate var didLeaveDeadZoneDuringSession: Bool = false
+    fileprivate var didSelectSliceDuringHold: Bool = false
     
-    /// Signature apposée sur les clics droits synthétiques ré-injectés pour éviter toute boucle infinie
     private let syntheticEventTag: Int64 = 0x494E4458 // "INDX"
-    
-    /// Boutons additionnels (2 = Milieu, 3/4 = Latéraux) en plus du Clic Droit
     var extraTriggerButtons: Set<Int64> = [2, 3, 4]
     
+    var isRunning: Bool {
+        guard let tap = eventTap else { return false }
+        return CGEvent.tapIsEnabled(tap: tap)
+    }
+    
     func start() -> Bool {
+        stop()
+        
         let eventMask: CGEventMask = (
             (1 << CGEventType.rightMouseDown.rawValue) |
             (1 << CGEventType.rightMouseUp.rawValue) |
             (1 << CGEventType.rightMouseDragged.rawValue) |
+            (1 << CGEventType.leftMouseDown.rawValue) |
             (1 << CGEventType.otherMouseDown.rawValue) |
             (1 << CGEventType.otherMouseUp.rawValue) |
             (1 << CGEventType.otherMouseDragged.rawValue) |
-            (1 << CGEventType.mouseMoved.rawValue)
+            (1 << CGEventType.mouseMoved.rawValue) |
+            (1 << CGEventType.keyDown.rawValue)
         )
         
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -55,7 +61,7 @@ final class EventTapManager {
         self.runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        return CGEvent.tapIsEnabled(tap: tap)
     }
     
     func stop() {
@@ -67,9 +73,9 @@ final class EventTapManager {
         }
         eventTap = nil
         runLoopSource = nil
+        isMenuCurrentlyActive = false
     }
     
-    /// Ferme la session depuis le moteur UI (ex: en mode exécution instantanée au survol)
     func endActiveSessionImmediately() {
         isMenuCurrentlyActive = false
     }
@@ -82,42 +88,61 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
         
-        // Laisse passer nos propres clics droits synthétiques (Pass-through)
         if event.getIntegerValueField(.eventSourceUserData) == syntheticEventTag {
             return Unmanaged.passUnretained(event)
         }
         
-        let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
-        
-        // Ne pas intercepter le clic droit si la fenêtre de configuration d'Indxe est au premier plan
-        if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier {
-            return Unmanaged.passUnretained(event)
+        // Permettre l'annulation avec la touche Échap (53) ou un clic gauche quand le menu est ouvert
+        if isMenuCurrentlyActive {
+            if type == .keyDown && event.getIntegerValueField(.keyboardEventKeycode) == 53 {
+                isMenuCurrentlyActive = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.delegate?.eventTapDidCancel()
+                }
+                return nil
+            }
+            if type == .leftMouseDown {
+                isMenuCurrentlyActive = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.delegate?.eventTapDidTriggerCommit()
+                }
+                return nil
+            }
         }
         
+        let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
         let isRightDown = (type == .rightMouseDown)
         let isOtherDown = (type == .otherMouseDown && extraTriggerButtons.contains(buttonNumber))
         
-        // 1. OUVERTURE DU PIE MENU AU CLIC DROIT (sans afficher le menu natif)
+        // 1. INTERCEPTION STRICTE DU CLIC DROIT : ouverture ou fermeture du Pie Menu
         if isRightDown || isOtherDown {
+            if isMenuCurrentlyActive {
+                isMenuCurrentlyActive = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.delegate?.eventTapDidCancel()
+                }
+                return nil
+            }
+            
             isMenuCurrentlyActive = true
             pressTimestamp = ProcessInfo.processInfo.systemUptime
             let cocoaLocation = NSEvent.mouseLocation
             initialPressLocation = cocoaLocation
-            didLeaveDeadZoneDuringSession = false
+            didSelectSliceDuringHold = false
             
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.eventTapDidTriggerShow(at: cocoaLocation)
             }
-            // Retourner nil avale l'événement et bloque à 100% le menu contextuel par défaut
+            // Bloque à 100% le menu contextuel natif macOS
             return nil
         }
         
-        // 2. GLISSEMENT DU CURSEUR VERS L'OPTION VOULUE
+        // 2. MOUVEMENT OU GLISSEMENT DU CURSEUR
         if isMenuCurrentlyActive && (type == .rightMouseDragged || type == .otherMouseDragged || type == .mouseMoved) {
             let cocoaLocation = NSEvent.mouseLocation
             let dist = hypot(cocoaLocation.x - initialPressLocation.x, cocoaLocation.y - initialPressLocation.y)
-            if dist > 25.0 {
-                didLeaveDeadZoneDuringSession = true
+            if dist >= 38.0 {
+                didSelectSliceDuringHold = true
             }
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.eventTapDidMoveCursor(to: cocoaLocation)
@@ -125,23 +150,31 @@ final class EventTapManager {
             return nil
         }
         
-        // 3. RELÂCHEMENT DU BOUTON : EXÉCUTION IMMÉDIATE DE LA TRANCHE SURVOLÉE
+        // 3. RELÂCHEMENT DU CLIC DROIT
         let isRightUp = (type == .rightMouseUp)
         let isOtherUp = (type == .otherMouseUp && extraTriggerButtons.contains(buttonNumber))
         
         if isRightUp || isOtherUp {
             guard isMenuCurrentlyActive else {
-                // Si la session a déjà été consommée par le mode Instant-Hover, on avale simplement le MouseUp
+                // Avale toujours le rightMouseUp pour que macOS n'ouvre jamais son menu au relâchement
                 return nil
             }
             
-            isMenuCurrentlyActive = false
             let elapsed = ProcessInfo.processInfo.systemUptime - pressTimestamp
             let cgLocation = event.location
             
-            // Si clic droit très court (< 180ms) sans glisser hors du centre et que l'option pass-through est active :
-            // on ferme l'anneau et on déclenche le vrai clic droit macOS.
-            if isRightUp && ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 && !didLeaveDeadZoneDuringSession {
+            // Si l'utilisateur a déjà glissé sur une tranche pendant qu'il maintenait le clic, on exécute au relâchement
+            if didSelectSliceDuringHold {
+                isMenuCurrentlyActive = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.delegate?.eventTapDidTriggerCommit()
+                }
+                return nil
+            }
+            
+            // Optionnel : si l'utilisateur a explicitement activé le pass-through du clic droit natif dans les réglages
+            if isRightUp && ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 {
+                isMenuCurrentlyActive = false
                 DispatchQueue.main.async { [weak self] in
                     self?.delegate?.eventTapDidCancel()
                     self?.postNativeRightClick(at: cgLocation)
@@ -149,9 +182,8 @@ final class EventTapManager {
                 return nil
             }
             
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.eventTapDidTriggerCommit()
-            }
+            // Si l'utilisateur a fait un simple clic droit sans bouger : on laisse le Pie Menu ouvert !
+            // Il peut maintenant simplement glisser son curseur sur l'option voulue sans maintenir le bouton.
             return nil
         }
         

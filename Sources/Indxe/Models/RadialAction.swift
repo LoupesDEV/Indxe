@@ -3,6 +3,109 @@ import AppKit
 import CoreGraphics
 import Carbon.HIToolbox
 
+enum RingTheme: String, Codable, CaseIterable, Identifiable {
+    case cyrexCrimson = "cyrex_crimson"
+    case midnightVanilla = "midnight_vanilla"
+    case swissMinimal = "swiss_minimal"
+    case terminalMatrix = "terminal_matrix"
+    case frostGlass = "frost_glass"
+    
+    var id: String { rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .cyrexCrimson: return "Cyrex Crimson"
+        case .midnightVanilla: return "Midnight Vanilla"
+        case .swissMinimal: return "Swiss Minimal"
+        case .terminalMatrix: return "Terminal HUD"
+        case .frostGlass: return "Chroma Slate"
+        }
+    }
+    
+    var subtitle: String {
+        switch self {
+        case .cyrexCrimson: return "#0D1117 • #DC2626"
+        case .midnightVanilla: return "#282B4A • #EEEBDA"
+        case .swissMinimal: return "Monochrome • Grille 1px"
+        case .terminalMatrix: return "Télémétrie • #10B981"
+        case .frostGlass: return "Multicolore par tranche"
+        }
+    }
+    
+    var sliceBackgroundHex: UInt32 {
+        switch self {
+        case .cyrexCrimson: return 0x0D1117
+        case .midnightVanilla: return 0x282B4A
+        case .swissMinimal: return 0x09090B
+        case .terminalMatrix: return 0x060A08
+        case .frostGlass: return 0x18181B
+        }
+    }
+    
+    var centerHubHex: UInt32 {
+        switch self {
+        case .cyrexCrimson: return 0x090C10
+        case .midnightVanilla: return 0x1E2038
+        case .swissMinimal: return 0x050505
+        case .terminalMatrix: return 0x040705
+        case .frostGlass: return 0x101014
+        }
+    }
+    
+    /// Si non-nil, force une couleur de sélection cohérente propre au thème (sinon utilise la couleur de la tranche)
+    var overrideAccentHex: UInt32? {
+        switch self {
+        case .cyrexCrimson: return 0xDC2626
+        case .midnightVanilla: return 0xEEEBDA
+        case .swissMinimal: return 0xF4F4F5
+        case .terminalMatrix: return 0x10B981
+        case .frostGlass: return nil
+        }
+    }
+    
+    var primaryTextHex: UInt32 {
+        switch self {
+        case .midnightVanilla: return 0xEEEBDA
+        case .terminalMatrix: return 0xA7F3D0
+        default: return 0xFFFFFF
+        }
+    }
+    
+    /// Couleur du texte et de l'icône sur la tranche actuellement sélectionnée
+    var selectedForegroundHex: UInt32 {
+        switch self {
+        case .midnightVanilla: return 0x1E2038
+        case .swissMinimal: return 0x09090B
+        case .terminalMatrix: return 0x040705
+        default: return 0xFFFFFF
+        }
+    }
+    
+    var borderOpacity: Double {
+        switch self {
+        case .swissMinimal: return 0.28
+        case .terminalMatrix: return 0.35
+        case .midnightVanilla: return 0.22
+        default: return 0.14
+        }
+    }
+    
+    var gapDegrees: Double {
+        switch self {
+        case .swissMinimal: return 1.5
+        case .terminalMatrix: return 4.0
+        default: return 2.8
+        }
+    }
+    
+    var ringExpansionOnHover: CGFloat {
+        switch self {
+        case .swissMinimal: return 4.0
+        default: return 8.0
+        }
+    }
+}
+
 enum ActionPayloadType: String, Codable, CaseIterable, Identifiable {
     case keyShortcut = "Raccourci Clavier"
     case shellCommand = "Commande Shell"
@@ -49,15 +152,21 @@ struct ActionPayload: Codable, Hashable {
     }
     
     var humanReadableShortcut: String {
-        guard type == .keyShortcut else { return scriptOrCommand }
-        var parts: [String] = []
-        let flags = cgFlags
-        if flags.contains(.maskControl) { parts.append("⌃") }
-        if flags.contains(.maskAlternate) { parts.append("⌥") }
-        if flags.contains(.maskShift) { parts.append("⇧") }
-        if flags.contains(.maskCommand) { parts.append("⌘") }
-        parts.append(KeyCodeMapper.string(for: keyCode))
-        return parts.joined()
+        switch type {
+        case .keyShortcut:
+            var parts: [String] = []
+            let flags = cgFlags
+            if flags.contains(.maskControl) { parts.append("⌃") }
+            if flags.contains(.maskAlternate) { parts.append("⌥") }
+            if flags.contains(.maskShift) { parts.append("⇧") }
+            if flags.contains(.maskCommand) { parts.append("⌘") }
+            parts.append(KeyCodeMapper.string(for: keyCode))
+            return parts.joined()
+        case .shellCommand:
+            return "zsh"
+        case .appleScript:
+            return "osa"
+        }
     }
 }
 
@@ -125,6 +234,8 @@ enum KeyCodeMapper {
         case kVK_ANSI_Slash: return "/"
         case kVK_ANSI_Minus: return "-"
         case kVK_ANSI_Equal: return "="
+        case kVK_ANSI_LeftBracket: return "["
+        case kVK_ANSI_RightBracket: return "]"
         case kVK_Space: return "Space"
         case kVK_Return: return "↩"
         case kVK_Tab: return "⇥"

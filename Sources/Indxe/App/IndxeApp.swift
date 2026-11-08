@@ -8,7 +8,7 @@ struct IndxeApp: App {
     var body: some Scene {
         MenuBarExtra("Indxe", systemImage: appDelegate.isTapActive ? "circle.hexagongrid.fill" : "exclamationmark.triangle.fill") {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Indxe — Actions Ring")
+                Text("Indxe - Actions Ring")
                     .font(.headline)
                 
                 HStack(spacing: 6) {
@@ -23,7 +23,7 @@ struct IndxeApp: App {
                 
                 Divider()
                 
-                Button("Configurer les Applications et Menus...") {
+                Button("Paramètres") {
                     appDelegate.openSettingsWindow()
                 }
                 .keyboardShortcut(",", modifiers: [.command])
@@ -31,18 +31,18 @@ struct IndxeApp: App {
                 Divider()
                 
                 if !appDelegate.isTapActive {
-                    Button("Réparer l'autorisation Accessibilité (Recommandé après un build)") {
+                    Button("Réparer (Recommandé après un build)") {
                         appDelegate.resetTCCPermissions()
                     }
                 }
                 
-                Button("Ouvrir les réglages d'Accessibilité...") {
+                Button("Ouvrir les paramètres d'Accessibilité...") {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                         NSWorkspace.shared.open(url)
                     }
                 }
                 
-                Button("Relancer l'écoute matérielle (EventTap)") {
+                Button("Relancer") {
                     appDelegate.checkPermissionsAndStartTap(promptIfNeeded: true)
                 }
                 

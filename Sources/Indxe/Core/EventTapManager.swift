@@ -31,17 +31,21 @@ final class EventTapManager {
     func start() -> Bool {
         stop()
         
-        let eventMask: CGEventMask = (
-            (1 << CGEventType.rightMouseDown.rawValue) |
-            (1 << CGEventType.rightMouseUp.rawValue) |
-            (1 << CGEventType.rightMouseDragged.rawValue) |
-            (1 << CGEventType.leftMouseDown.rawValue) |
-            (1 << CGEventType.otherMouseDown.rawValue) |
-            (1 << CGEventType.otherMouseUp.rawValue) |
-            (1 << CGEventType.otherMouseDragged.rawValue) |
-            (1 << CGEventType.mouseMoved.rawValue) |
-            (1 << CGEventType.keyDown.rawValue)
-        )
+        let trackedEvents: [CGEventType] = [
+            .rightMouseDown,
+            .rightMouseUp,
+            .rightMouseDragged,
+            .leftMouseDown,
+            .otherMouseDown,
+            .otherMouseUp,
+            .otherMouseDragged,
+            .mouseMoved,
+            .keyDown
+        ]
+        
+        let eventMask: CGEventMask = trackedEvents.reduce(0) { mask, type in
+            mask | (CGEventMask(1) << CGEventMask(type.rawValue))
+        }
         
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         
@@ -92,7 +96,7 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
         
-        // Permettre l'annulation avec la touche Échap (53) ou un clic gauche quand le menu est ouvert
+        // Permettre l'annulation avec la touche Échap (53) ou la validation au clic gauche quand le menu est ouvert
         if isMenuCurrentlyActive {
             if type == .keyDown && event.getIntegerValueField(.keyboardEventKeycode) == 53 {
                 isMenuCurrentlyActive = false

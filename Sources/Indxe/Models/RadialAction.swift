@@ -14,41 +14,31 @@ enum RingTheme: String, Codable, CaseIterable, Identifiable {
     
     var displayName: String {
         switch self {
-        case .cyrexCrimson: return "OBSIDIAN // CRIMSON"
-        case .midnightVanilla: return "MIDNIGHT // VANILLA"
-        case .swissMinimal: return "DIETER // ORANGE"
-        case .terminalMatrix: return "TELEMETRY // HUD"
-        case .frostGlass: return "GRAPHITE // MONO"
-        }
-    }
-    
-    var codeName: String {
-        switch self {
-        case .cyrexCrimson: return "TH-01"
-        case .midnightVanilla: return "TH-02"
-        case .swissMinimal: return "TH-03"
-        case .terminalMatrix: return "TH-04"
-        case .frostGlass: return "TH-05"
+        case .cyrexCrimson: return "Crimson"
+        case .midnightVanilla: return "Midnight"
+        case .swissMinimal: return "Amber"
+        case .terminalMatrix: return "Emerald"
+        case .frostGlass: return "Mono"
         }
     }
     
     var sliceBackgroundHex: UInt32 {
         switch self {
-        case .cyrexCrimson: return 0x0A0A0C
+        case .cyrexCrimson: return 0x0D1117
         case .midnightVanilla: return 0x282B4A
         case .swissMinimal: return 0x141413
-        case .terminalMatrix: return 0x070A08
-        case .frostGlass: return 0x121215
+        case .terminalMatrix: return 0x09110E
+        case .frostGlass: return 0x141416
         }
     }
     
     var centerHubHex: UInt32 {
         switch self {
-        case .cyrexCrimson: return 0x070709
+        case .cyrexCrimson: return 0x090C10
         case .midnightVanilla: return 0x1E2038
         case .swissMinimal: return 0x0E0E0D
-        case .terminalMatrix: return 0x040605
-        case .frostGlass: return 0x0A0A0C
+        case .terminalMatrix: return 0x050907
+        case .frostGlass: return 0x0C0C0E
         }
     }
     
@@ -65,8 +55,6 @@ enum RingTheme: String, Codable, CaseIterable, Identifiable {
     var primaryTextHex: UInt32 {
         switch self {
         case .midnightVanilla: return 0xEEEBDA
-        case .swissMinimal: return 0xE7E5E4
-        case .terminalMatrix: return 0xD1FAE5
         default: return 0xF4F4F5
         }
     }
@@ -75,39 +63,20 @@ enum RingTheme: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .midnightVanilla: return 0x1E2038
         case .frostGlass: return 0x09090B
-        case .terminalMatrix: return 0x040705
+        case .terminalMatrix: return 0x050907
         default: return 0xFFFFFF
         }
     }
     
-    var borderOpacity: Double {
-        switch self {
-        case .midnightVanilla: return 0.22
-        case .terminalMatrix: return 0.30
-        default: return 0.16
-        }
-    }
-    
-    var gapDegrees: Double {
-        switch self {
-        case .frostGlass: return 1.2
-        case .terminalMatrix: return 2.5
-        default: return 1.8
-        }
-    }
-    
-    var ringExpansionOnHover: CGFloat {
-        switch self {
-        case .frostGlass: return 3.0
-        default: return 5.0
-        }
-    }
+    var borderOpacity: Double { 0.14 }
+    var gapDegrees: Double { 2.0 }
+    var ringExpansionOnHover: CGFloat { 5.0 }
 }
 
 enum ActionPayloadType: String, Codable, CaseIterable, Identifiable {
-    case keyShortcut = "KEYBIND"
-    case shellCommand = "EXEC ZSH"
-    case appleScript = "OSASCRIPT"
+    case keyShortcut = "Raccourci"
+    case shellCommand = "Shell"
+    case appleScript = "Script"
     
     var id: String { rawValue }
 }
@@ -127,11 +96,11 @@ struct ActionPayload: Codable, Hashable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let rawType = (try? container.decode(String.self, forKey: .type)) ?? "KEYBIND"
+        let rawType = (try? container.decode(String.self, forKey: .type)) ?? "Raccourci"
         switch rawType {
-        case "Raccourci Clavier", "KEYBIND": self.type = .keyShortcut
-        case "Commande Shell", "EXEC ZSH": self.type = .shellCommand
-        case "AppleScript", "OSASCRIPT": self.type = .appleScript
+        case "Raccourci Clavier", "KEYBIND", "Raccourci": self.type = .keyShortcut
+        case "Commande Shell", "EXEC ZSH", "Shell": self.type = .shellCommand
+        case "AppleScript", "OSASCRIPT", "Script": self.type = .appleScript
         default: self.type = .keyShortcut
         }
         self.keyCode = (try? container.decode(UInt16.self, forKey: .keyCode)) ?? 0
@@ -149,21 +118,11 @@ struct ActionPayload: Codable, Hashable {
     }
     
     static func shell(_ cmd: String) -> ActionPayload {
-        ActionPayload(
-            type: .shellCommand,
-            keyCode: 0,
-            modifiersRaw: 0,
-            scriptOrCommand: cmd
-        )
+        ActionPayload(type: .shellCommand, keyCode: 0, modifiersRaw: 0, scriptOrCommand: cmd)
     }
     
     static func appleScript(_ script: String) -> ActionPayload {
-        ActionPayload(
-            type: .appleScript,
-            keyCode: 0,
-            modifiersRaw: 0,
-            scriptOrCommand: script
-        )
+        ActionPayload(type: .appleScript, keyCode: 0, modifiersRaw: 0, scriptOrCommand: script)
     }
     
     var cgFlags: CGEventFlags {
@@ -180,11 +139,11 @@ struct ActionPayload: Codable, Hashable {
             if flags.contains(.maskShift) { parts.append("⇧") }
             if flags.contains(.maskCommand) { parts.append("⌘") }
             parts.append(KeyCodeMapper.string(for: keyCode))
-            return parts.joined(separator: " ")
+            return parts.joined()
         case .shellCommand:
-            return "SH"
+            return "Shell"
         case .appleScript:
-            return "OSA"
+            return "Script"
         }
     }
 }
@@ -255,28 +214,16 @@ enum KeyCodeMapper {
         case kVK_ANSI_Equal: return "="
         case kVK_ANSI_LeftBracket: return "["
         case kVK_ANSI_RightBracket: return "]"
-        case kVK_Space: return "SPC"
-        case kVK_Return: return "RET"
-        case kVK_Tab: return "TAB"
-        case kVK_Delete: return "DEL"
-        case kVK_Escape: return "ESC"
+        case kVK_Space: return "Space"
+        case kVK_Return: return "↩"
+        case kVK_Tab: return "⇥"
+        case kVK_Delete: return "⌫"
+        case kVK_Escape: return "⎋"
         case kVK_LeftArrow: return "←"
         case kVK_RightArrow: return "→"
         case kVK_UpArrow: return "↑"
         case kVK_DownArrow: return "↓"
-        case kVK_F1: return "F1"
-        case kVK_F2: return "F2"
-        case kVK_F3: return "F3"
-        case kVK_F4: return "F4"
-        case kVK_F5: return "F5"
-        case kVK_F6: return "F6"
-        case kVK_F7: return "F7"
-        case kVK_F8: return "F8"
-        case kVK_F9: return "F9"
-        case kVK_F10: return "F10"
-        case kVK_F11: return "F11"
-        case kVK_F12: return "F12"
-        default: return "K\(keyCode)"
+        default: return "Key(\(keyCode))"
         }
     }
 }

@@ -9,12 +9,16 @@ struct SettingsView: View {
     @State private var keyMonitor: Any? = nil
     @State private var previewHoveredSliceIndex: Int? = 0
     
-    private let bgCanvas = Color(hex: 0x0D1117)
-    private let bgCard = Color(hex: 0x161B22)
-    private let bgSidebar = Color(hex: 0x090C10)
-    private let crimson = Color(hex: 0xDC2626)
+    // Palette Swiss Industrial
+    private let surfacePrimary = Color(hex: 0x0A0A0C)
+    private let surfaceSecondary = Color(hex: 0x0E0E11)
+    private let surfaceElevated = Color(hex: 0x141418)
+    private let hairline = Color(hex: 0x1F1F24)
+    private let textPrimary = Color(hex: 0xF4F4F5)
+    private let textMuted = Color(hex: 0x71717A)
+    private let accentCrimson = Color(hex: 0xDC2626)
     
-    private let suggestedSymbols: [String] = [
+    private let symbolCatalog: [String] = [
         "command", "hammer.fill", "play.fill", "playpause.fill", "forward.end.fill", "backward.end.fill",
         "trash.fill", "magnifyingglass", "sparkle.magnifyingglass", "terminal.fill", "apple.terminal",
         "doc.on.doc.fill", "doc.on.clipboard.fill", "camera.viewfinder", "macwindow.on.rectangle",
@@ -25,258 +29,259 @@ struct SettingsView: View {
     ]
     
     var body: some View {
-        HStack(spacing: 0) {
-            // COLONNE 1 : SIDEBAR DES PROFILS D'APPLICATIONS
-            sidebarColumn
-                .frame(width: 245)
-                .background(bgSidebar)
+        VStack(spacing: 0) {
+            // BARRE D'ESPACE SUPÉRIEURE (Pour laisser respirer les feux tricolores macOS)
+            topArchitecturalBar
             
-            Rectangle()
-                .fill(Color.white.opacity(0.07))
-                .frame(width: 1)
+            Rectangle().fill(hairline).frame(height: 1)
             
-            // COLONNE 2 : ÉDITEUR CENTRAL + SÉLECTEUR DE THÈMES
-            if let profileIndex = store.profiles.firstIndex(where: { $0.bundleIdentifier == selectedProfileID }) {
-                mainEditorColumn(for: $store.profiles[profileIndex])
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(bgCanvas)
+            HStack(spacing: 0) {
+                // COLONNE 01 : REGISTRE DES CONTEXTES (SIDEBAR)
+                contextRegistrySidebar
+                    .frame(width: 230)
+                    .background(surfacePrimary)
                 
-                Rectangle()
-                    .fill(Color.white.opacity(0.07))
-                    .frame(width: 1)
+                Rectangle().fill(hairline).frame(width: 1)
                 
-                // COLONNE 3 : APERÇU INTERACTIF EN DIRECT + RÉGLAGES MOTEUR
-                livePreviewColumn(profile: store.profiles[profileIndex])
-                    .frame(width: 320)
-                    .background(bgSidebar)
-            } else {
-                VStack {
-                    Text("Sélectionnez un profil")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                if let profileIndex = store.profiles.firstIndex(where: { $0.bundleIdentifier == selectedProfileID }) {
+                    // COLONNE 02 : MATRICE DES SECTEURS (CENTRE)
+                    sectorMatrixView(for: $store.profiles[profileIndex])
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(surfacePrimary)
+                    
+                    Rectangle().fill(hairline).frame(width: 1)
+                    
+                    // COLONNE 03 : BANC DE CALIBRATION & THÈMES (DROITE)
+                    calibrationInspector(profile: store.profiles[profileIndex])
+                        .frame(width: 330)
+                        .background(surfaceSecondary)
+                } else {
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(bgCanvas)
             }
         }
         .frame(minWidth: 1120, minHeight: 680)
+        .background(surfacePrimary)
         .preferredColorScheme(.dark)
         .onDisappear {
             stopRecordingShortcut()
         }
     }
     
-    // MARK: - Colonne 1 : Sidebar
+    // MARK: - Top Architectural Header
     
-    private var sidebarColumn: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Brand Header
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(crimson.opacity(0.18))
-                        .frame(width: 28, height: 28)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 7)
-                                .strokeBorder(crimson.opacity(0.6), lineWidth: 1)
-                        )
-                    Image(systemName: "circle.hexagongrid.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(crimson)
+    private var topArchitecturalBar: some View {
+        HStack(spacing: 0) {
+            // Espace réservé aux boutons de fenêtre macOS (Close/Min/Max)
+            Spacer().frame(width: 78)
+            
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(accentCrimson)
+                    .frame(width: 8, height: 8)
+                
+                Text("INDXE")
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .tracking(2.0)
+                    .foregroundStyle(textPrimary)
+                
+                Text("// RADIAL INPUT MATRIX")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(textMuted)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 18) {
+                HStack(spacing: 6) {
+                    Text("THEME:")
+                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .foregroundStyle(textMuted)
+                    Text(store.selectedTheme.displayName)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(textPrimary)
                 }
                 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("INDXE")
-                        .font(.system(size: 14, weight: .black, design: .monospaced))
-                        .tracking(1.5)
-                    Text("RADIAL ENGINE v2")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                Rectangle().fill(hairline).frame(width: 1, height: 14)
+                
+                HStack(spacing: 6) {
+                    Text("MODE:")
+                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .foregroundStyle(textMuted)
+                    Text(store.instantHoverTrigger ? "INSTANT_VECTOR" : "HOLD_RELEASE")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accentCrimson)
                 }
+            }
+            .padding(.trailing, 18)
+        }
+        .frame(height: 38)
+        .background(surfaceSecondary)
+    }
+    
+    // MARK: - Colonne 01 : Registre des Applications
+    
+    private var contextRegistrySidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // En-tête de section
+            HStack {
+                Text("01 // TARGETS")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.2)
+                    .foregroundStyle(textMuted)
                 Spacer()
+                Text("[\(store.profiles.count)]")
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(textMuted)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .frame(height: 34)
+            .background(surfaceSecondary)
             
-            Divider().opacity(0.3)
+            Rectangle().fill(hairline).frame(height: 1)
             
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Section Global
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("SYSTÈME")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                        
-                        ForEach(store.profiles.filter { $0.bundleIdentifier == AppProfile.globalBundleID }) { profile in
-                            sidebarItem(profile)
-                        }
-                    }
-                    
-                    // Section Applications
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("APPLICATIONS (\(store.profiles.count - 1))")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        
-                        ForEach(store.profiles.filter { $0.bundleIdentifier != AppProfile.globalBundleID }) { profile in
-                            sidebarItem(profile)
-                        }
+                VStack(spacing: 0) {
+                    ForEach(store.profiles) { profile in
+                        contextRow(profile)
+                        Rectangle().fill(hairline.opacity(0.6)).frame(height: 1)
                     }
                 }
-                .padding(.vertical, 14)
-                .padding(.horizontal, 8)
             }
             
-            Divider().opacity(0.3)
+            Rectangle().fill(hairline).frame(height: 1)
             
-            // Actions bas de sidebar
-            VStack(spacing: 8) {
+            // Barre d'outils inférieure
+            HStack(spacing: 0) {
                 Button {
                     pickApplication()
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "plus.app.fill")
-                        Text("Ajouter une Application")
-                            .font(.system(size: 12, weight: .semibold))
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("ADD TARGET")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(0.8)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(crimson)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                    .foregroundStyle(textPrimary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 
-                HStack(spacing: 8) {
-                    Button {
-                        store.restoreFactoryDefaults()
-                        selectedProfileID = AppProfile.globalBundleID
-                    } label: {
-                        Label("Profils d'usine", systemImage: "arrow.counterclockwise")
-                            .font(.system(size: 11, weight: .medium))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 5)
-                            .background(bgCard)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Recharge tous les setups d'applications par défaut")
-                    
-                    if selectedProfileID != AppProfile.globalBundleID {
-                        Button {
-                            let id = selectedProfileID
-                            selectedProfileID = AppProfile.globalBundleID
-                            store.removeProfile(bundleIdentifier: id)
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.red)
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 10)
-                                .background(bgCard)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Supprimer ce profil d'application")
-                    }
+                Rectangle().fill(hairline).frame(width: 1)
+                
+                Button {
+                    store.restoreFactoryDefaults()
+                    selectedProfileID = AppProfile.globalBundleID
+                } label: {
+                    Text("RESET")
+                        .font(.system(size: 10, weight: .regular, design: .monospaced))
+                        .foregroundStyle(textMuted)
+                        .frame(width: 64, height: 36)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help("Restaurer les profils d'usine")
             }
-            .padding(12)
+            .frame(height: 36)
+            .background(surfaceSecondary)
         }
     }
     
     @ViewBuilder
-    private func sidebarItem(_ profile: AppProfile) -> some View {
+    private func contextRow(_ profile: AppProfile) -> some View {
         let isSelected = (selectedProfileID == profile.bundleIdentifier)
+        let isGlobal = (profile.bundleIdentifier == AppProfile.globalBundleID)
         
         Button {
             selectedProfileID = profile.bundleIdentifier
             previewHoveredSliceIndex = 0
         } label: {
             HStack(spacing: 10) {
-                appIconView(for: profile, size: 22)
+                // Indicateur franc de sélection (Barre verticale 2px)
+                Rectangle()
+                    .fill(isSelected ? accentCrimson : Color.clear)
+                    .frame(width: 2)
                 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(profile.displayName)
-                        .font(.system(size: 12, weight: isSelected ? .bold : .medium))
-                        .foregroundStyle(isSelected ? .white : .white.opacity(0.82))
+                appIconView(for: profile, size: 18)
+                    .padding(.leading, 4)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isGlobal ? "GLOBAL FALLBACK" : profile.displayName.uppercased())
+                        .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .monospaced))
+                        .foregroundStyle(isSelected ? textPrimary : textPrimary.opacity(0.75))
                         .lineLimit(1)
                     
-                    Text("\(profile.slices.count) actions")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(isSelected ? .white.opacity(0.7) : .secondary)
+                    Text(isGlobal ? "*.*" : profile.bundleIdentifier)
+                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                        .foregroundStyle(textMuted)
+                        .lineLimit(1)
                 }
                 
                 Spacer()
                 
-                if isSelected {
-                    Circle()
-                        .fill(crimson)
-                        .frame(width: 6, height: 6)
-                }
+                Text(String(format: "%02d", profile.slices.count))
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(isSelected ? accentCrimson : textMuted)
+                    .padding(.trailing, 14)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.white.opacity(0.08) : Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(isSelected ? Color.white.opacity(0.14) : Color.clear, lineWidth: 1)
-                    )
-            )
+            .frame(height: 44)
+            .background(isSelected ? surfaceElevated : Color.clear)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
     
-    // MARK: - Colonne 2 : Éditeur Principal & Sélecteur de Thèmes
+    // MARK: - Colonne 02 : Matrice des Secteurs (Table Tabulaire)
     
     @ViewBuilder
-    private func mainEditorColumn(for profile: Binding<AppProfile>) -> some View {
+    private func sectorMatrixView(for profile: Binding<AppProfile>) -> some View {
+        let sliceCount = profile.wrappedValue.slices.count
+        
         VStack(alignment: .leading, spacing: 0) {
-            // Sélecteur de Thème Visuel Horizontal
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("THÈME VISUEL DU PIE MENU")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                
-                HStack(spacing: 10) {
-                    ForEach(RingTheme.allCases) { theme in
-                        themeCard(theme)
-                    }
-                }
-            }
-            .padding(18)
-            .background(bgSidebar.opacity(0.5))
-            
-            Divider().opacity(0.3)
-            
-            // En-tête de l'application sélectionnée
-            HStack(spacing: 12) {
-                appIconView(for: profile.wrappedValue, size: 34)
+            // En-tête du profil actif
+            HStack(alignment: .center, spacing: 14) {
+                appIconView(for: profile.wrappedValue, size: 28)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.wrappedValue.displayName)
-                        .font(.system(size: 18, weight: .bold))
-                    Text(profile.wrappedValue.bundleIdentifier)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text(profile.wrappedValue.displayName.uppercased())
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .tracking(0.8)
+                            .foregroundStyle(textPrimary)
+                        
+                        Text("// \(profile.wrappedValue.bundleIdentifier)")
+                            .font(.system(size: 11, weight: .regular, design: .monospaced))
+                            .foregroundStyle(textMuted)
+                    }
+                    
+                    Text("SECTOR RESOLUTION: \(sliceCount > 0 ? Int(360.0 / Double(sliceCount)) : 0)° PER SLICE")
+                        .font(.system(size: 9.5, weight: .regular, design: .monospaced))
+                        .foregroundStyle(textMuted)
                 }
                 
                 Spacer()
                 
+                if profile.wrappedValue.bundleIdentifier != AppProfile.globalBundleID {
+                    Button {
+                        let id = selectedProfileID
+                        selectedProfileID = AppProfile.globalBundleID
+                        store.removeProfile(bundleIdentifier: id)
+                    } label: {
+                        Text("DELETE PROFILE")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(textMuted)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .overlay(Rectangle().strokeBorder(hairline, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+                
                 Button {
                     let newSlice = RadialSlice(
-                        title: "Action \(profile.wrappedValue.slices.count + 1)",
+                        title: "CMD_\(sliceCount + 1)",
                         systemImage: "bolt.fill",
                         accentColorHex: 0xDC2626,
                         payload: .shortcut(keyCode: 0, flags: .maskCommand)
@@ -286,26 +291,51 @@ struct SettingsView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
-                        Text("Nouvelle Tranche")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 10, weight: .bold))
+                        Text("APPEND SECTOR")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
                     }
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .background(accentCrimson)
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 14)
+            .frame(height: 62)
+            .background(surfacePrimary)
             
-            Divider().opacity(0.2)
+            Rectangle().fill(hairline).frame(height: 1)
             
-            // Liste des tranches (Slices)
+            // En-tête de colonnes de la table (Style tableur technique)
+            HStack(spacing: 0) {
+                Text("IDX / ARC")
+                    .frame(width: 86, alignment: .leading)
+                Text("SYM")
+                    .frame(width: 44, alignment: .center)
+                Text("LABEL")
+                    .frame(width: 145, alignment: .leading)
+                Text("VECTOR TYPE")
+                    .frame(width: 115, alignment: .leading)
+                Text("PAYLOAD / KEYBIND")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("ORD")
+                    .frame(width: 68, alignment: .trailing)
+            }
+            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+            .foregroundStyle(textMuted)
+            .padding(.horizontal, 20)
+            .frame(height: 28)
+            .background(surfaceSecondary)
+            
+            Rectangle().fill(hairline).frame(height: 1)
+            
+            // Lignes de la table
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     ForEach(Array(profile.wrappedValue.slices.enumerated()), id: \.element.id) { index, _ in
-                        sliceEditorRow(
+                        sectorTableRow(
                             slice: Binding(
                                 get: { profile.wrappedValue.slices[index] },
                                 set: { newValue in
@@ -314,14 +344,14 @@ struct SettingsView: View {
                                 }
                             ),
                             index: index,
-                            totalCount: profile.wrappedValue.slices.count,
+                            totalCount: sliceCount,
                             onMoveUp: {
                                 guard index > 0 else { return }
                                 profile.wrappedValue.slices.swapAt(index, index - 1)
                                 store.save()
                             },
                             onMoveDown: {
-                                guard index < profile.wrappedValue.slices.count - 1 else { return }
+                                guard index < sliceCount - 1 else { return }
                                 profile.wrappedValue.slices.swapAt(index, index + 1)
                                 store.save()
                             },
@@ -331,74 +361,15 @@ struct SettingsView: View {
                                 store.save()
                             }
                         )
-                        .onHover { hovering in
-                            if hovering {
-                                previewHoveredSliceIndex = index
-                            }
-                        }
+                        Rectangle().fill(hairline).frame(height: 1)
                     }
                 }
-                .padding(20)
             }
         }
     }
     
     @ViewBuilder
-    private func themeCard(_ theme: RingTheme) -> some View {
-        let isSelected = (store.selectedTheme == theme)
-        let previewAccent = Color(hex: theme.overrideAccentHex ?? 0x3B82F6)
-        
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                store.selectedTheme = theme
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color(hex: theme.sliceBackgroundHex))
-                        .frame(width: 14, height: 14)
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
-                    
-                    Circle()
-                        .fill(previewAccent)
-                        .frame(width: 14, height: 14)
-                    
-                    Spacer()
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(crimson)
-                    }
-                }
-                
-                Text(theme.displayName)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                
-                Text(theme.subtitle)
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(bgCard)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(isSelected ? crimson : Color.white.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
-                    )
-            )
-        }
-        .buttonStyle(.plain)
-    }
-    
-    @ViewBuilder
-    private func sliceEditorRow(
+    private func sectorTableRow(
         slice: Binding<RadialSlice>,
         index: Int,
         totalCount: Int,
@@ -407,83 +378,83 @@ struct SettingsView: View {
         onDelete: @escaping () -> Void
     ) -> some View {
         let isRecording = (recordingSliceID == slice.wrappedValue.id)
+        let isHoveredInPreview = (previewHoveredSliceIndex == index)
+        let stepDeg = 360.0 / Double(max(totalCount, 1))
+        let centerDeg = Int(round(Double(index) * stepDeg)) % 360
         
-        HStack(spacing: 10) {
-            // Badge d'index + Flèches d'ordre
-            VStack(spacing: 2) {
-                Button(action: onMoveUp) {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 9, weight: .bold))
-                }
-                .buttonStyle(.plain)
-                .disabled(index == 0)
-                .opacity(index == 0 ? 0.2 : 0.7)
+        HStack(spacing: 0) {
+            // 1. Index + Angle Polaire
+            HStack(spacing: 6) {
+                Text(String(format: "%02d", index + 1))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(isHoveredInPreview ? accentCrimson : textPrimary)
                 
-                Text("#\(index + 1)")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                
-                Button(action: onMoveDown) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .bold))
-                }
-                .buttonStyle(.plain)
-                .disabled(index == totalCount - 1)
-                .opacity(index == totalCount - 1 ? 0.2 : 0.7)
+                Text(String(format: "%03d°", centerDeg))
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(textMuted)
             }
-            .frame(width: 24)
+            .frame(width: 86, alignment: .leading)
             
-            // Couleur de la tranche (utile en mode Chroma Slate)
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: slice.wrappedValue.accentColorHex) },
-                set: { newColor in
-                    slice.wrappedValue.accentColorHex = newColor.toHex()
-                }
-            ), supportsOpacity: false)
-            .labelsHidden()
-            .frame(width: 24)
-            
-            // Sélecteur SF Symbol
+            // 2. Sélecteur d'icône SF Symbol
             Menu {
-                ForEach(suggestedSymbols, id: \.self) { symbol in
+                ForEach(symbolCatalog, id: \.self) { sym in
                     Button {
-                        slice.wrappedValue.systemImage = symbol
+                        slice.wrappedValue.systemImage = sym
                     } label: {
-                        Label(symbol, systemImage: symbol)
+                        Label(sym, systemImage: sym)
                     }
                 }
             } label: {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.white.opacity(0.06))
-                        .frame(width: 32, height: 32)
+                    Rectangle()
+                        .fill(surfaceSecondary)
+                        .frame(width: 28, height: 28)
+                        .overlay(Rectangle().strokeBorder(hairline, lineWidth: 1))
                     Image(systemName: slice.wrappedValue.systemImage)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(textPrimary)
                 }
             }
             .buttonStyle(.plain)
-            .frame(width: 34)
+            .frame(width: 44, alignment: .center)
             
-            // Titre
-            TextField("Nom", text: slice.title)
+            // 3. Champ Label éditable sur grille
+            TextField("LABEL", text: slice.title)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(textPrimary)
                 .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.35))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .frame(width: 130)
+                .frame(width: 135, height: 28)
+                .background(surfaceSecondary)
+                .overlay(Rectangle().strokeBorder(hairline, lineWidth: 1))
+                .padding(.trailing, 10)
             
-            // Type d'action
-            Picker("", selection: slice.payload.type) {
+            // 4. Sélecteur de Type d'Action (Cycle au clic pour éviter les menus déroulants lourds)
+            Menu {
                 ForEach(ActionPayloadType.allCases) { kind in
-                    Text(kind.rawValue).tag(kind)
+                    Button(kind.rawValue) {
+                        slice.wrappedValue.payload.type = kind
+                    }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(slice.wrappedValue.payload.type.rawValue)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(textMuted)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8))
+                        .foregroundStyle(textMuted)
+                }
+                .padding(.horizontal, 8)
+                .frame(width: 105, height: 28)
+                .background(surfaceSecondary)
+                .overlay(Rectangle().strokeBorder(hairline, lineWidth: 1))
             }
-            .labelsHidden()
-            .frame(width: 135)
+            .buttonStyle(.plain)
+            .padding(.trailing, 10)
             
-            // Raccourci ou Script
+            // 5. Keycap Recorder ou Script Field
             if slice.wrappedValue.payload.type == .keyShortcut {
                 Button {
                     if isRecording {
@@ -492,76 +463,120 @@ struct SettingsView: View {
                         startRecordingShortcut(for: slice)
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(isRecording ? crimson : Color.white.opacity(0.3))
-                            .frame(width: 6, height: 6)
-                        Text(isRecording ? "Tapez le raccourci..." : slice.wrappedValue.payload.humanReadableShortcut)
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    HStack(spacing: 8) {
+                        Rectangle()
+                            .fill(isRecording ? accentCrimson : textMuted.opacity(0.4))
+                            .frame(width: 5, height: 5)
+                        
+                        Text(isRecording ? "PRESS KEYS [ESC TO CANCEL]" : slice.wrappedValue.payload.humanReadableShortcut)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(isRecording ? accentCrimson : textPrimary)
+                        
+                        Spacer()
+                        
+                        Text("REC")
+                            .font(.system(size: 8.5, weight: .regular, design: .monospaced))
+                            .foregroundStyle(textMuted)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(isRecording ? crimson.opacity(0.22) : Color.black.opacity(0.35))
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
+                    .background(isRecording ? accentCrimson.opacity(0.12) : surfaceSecondary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .strokeBorder(isRecording ? crimson : Color.white.opacity(0.1), lineWidth: 1)
+                        Rectangle()
+                            .strokeBorder(isRecording ? accentCrimson : hairline, lineWidth: 1)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
             } else {
                 TextField(
-                    slice.wrappedValue.payload.type == .shellCommand ? "Commande zsh..." : "Code AppleScript...",
+                    slice.wrappedValue.payload.type == .shellCommand ? "/bin/zsh -c ..." : "tell application ...",
                     text: slice.payload.scriptOrCommand
                 )
                 .textFieldStyle(.plain)
                 .font(.system(size: 11, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.35))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .frame(maxWidth: .infinity)
+                .foregroundStyle(textPrimary)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
+                .background(surfaceSecondary)
+                .overlay(Rectangle().strokeBorder(hairline, lineWidth: 1))
             }
             
-            Button(action: onDelete) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
+            // 6. Contrôles d'ordre & suppression
+            HStack(spacing: 8) {
+                Button(action: onMoveUp) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 10))
+                        .foregroundStyle(index == 0 ? textMuted.opacity(0.2) : textMuted)
+                }
+                .buttonStyle(.plain)
+                .disabled(index == 0)
+                
+                Button(action: onMoveDown) {
+                    Image(systemName: "arrow.down")
+                        .font(.system(size: 10))
+                        .foregroundStyle(index == totalCount - 1 ? textMuted.opacity(0.2) : textMuted)
+                }
+                .buttonStyle(.plain)
+                .disabled(index == totalCount - 1)
+                
+                Button(action: onDelete) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(textMuted)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .frame(width: 68, alignment: .trailing)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 9)
-                .fill(bgCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 9)
-                        .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 20)
+        .frame(height: 46)
+        .background(isHoveredInPreview ? surfaceElevated.opacity(0.55) : Color.clear)
+        .onHover { hovering in
+            if hovering {
+                previewHoveredSliceIndex = index
+            }
+        }
     }
     
-    // MARK: - Colonne 3 : Aperçu Live & Comportement
+    // MARK: - Colonne 03 : Banc de Calibration CAD & Thèmes
     
     @ViewBuilder
-    private func livePreviewColumn(profile: AppProfile) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("APERÇU EN DIRECT")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .padding(.top, 18)
-                .padding(.horizontal, 18)
+    private func calibrationInspector(profile: AppProfile) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section 02 : Aperçu Géométrique
+            HStack {
+                Text("02 // GEOMETRY MONITOR")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.2)
+                    .foregroundStyle(textMuted)
+                Spacer()
+                if let idx = previewHoveredSliceIndex {
+                    Text(String(format: "ACTIVE: S%02d", idx + 1))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accentCrimson)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 34)
             
-            // Zone d'aperçu du Pie Menu à l'échelle
+            Rectangle().fill(hairline).frame(height: 1)
+            
+            // Viewport avec grille CAD
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.45))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
-                    )
+                surfacePrimary
+                
+                // Axes réticulaires de visée (Blueprint Grid)
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    let h = geo.size.height
+                    Path { path in
+                        path.move(to: CGPoint(x: w / 2, y: 0))
+                        path.addLine(to: CGPoint(x: w / 2, y: h))
+                        path.move(to: CGPoint(x: 0, y: h / 2))
+                        path.addLine(to: CGPoint(x: w, y: h / 2))
+                    }
+                    .stroke(hairline.opacity(0.9), lineWidth: 0.75)
+                }
                 
                 RadialRingCanvas(
                     profile: profile,
@@ -569,80 +584,178 @@ struct SettingsView: View {
                     selectedIndex: previewHoveredSliceIndex,
                     currentAngleDegrees: nil,
                     deadZoneRadius: 28.0,
-                    outerRadius: 115.0
+                    outerRadius: 112.0
                 )
                 .scaleEffect(0.88)
-            }
-            .frame(height: 290)
-            .padding(.horizontal, 16)
-            
-            // Sélecteur rapide de tranche simulée dans l'aperçu
-            if !profile.slices.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(Array(profile.slices.enumerated()), id: \.element.id) { idx, slice in
-                            Button {
-                                previewHoveredSliceIndex = idx
-                            } label: {
-                                Text(slice.title)
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(previewHoveredSliceIndex == idx ? crimson : bgCard)
-                                    .clipShape(RoundedRectangle(cornerRadius: 5))
-                            }
-                            .buttonStyle(.plain)
-                        }
+                
+                // Télémétrie en bas du viewport
+                VStack {
+                    Spacer()
+                    HStack {
+                        Text("R_IN: 28.0pt")
+                        Spacer()
+                        Text("R_TRIG: 78.0pt")
+                        Spacer()
+                        Text("R_OUT: 135.0pt")
                     }
-                    .padding(.horizontal, 16)
+                    .font(.system(size: 8.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(textMuted)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
                 }
             }
+            .frame(height: 275)
             
-            Divider().opacity(0.3)
+            Rectangle().fill(hairline).frame(height: 1)
             
-            // Réglages Moteur d'Interception
-            VStack(alignment: .leading, spacing: 12) {
-                Text("COMPORTEMENT DU CLIC DROIT")
+            // Section 03 : Sélecteur de Palette / Thème
+            HStack {
+                Text("03 // COLORIMETRY & THEME")
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                
-                Toggle(isOn: $store.instantHoverTrigger) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Exécution instantanée au glissement")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Valide l'option dès que le curseur entre dans la tranche sans attendre le relâchement.")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.switch)
-                
-                Toggle(isOn: $store.allowQuickRightClickPassThrough) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Pass-through clic droit rapide")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Un clic droit sec (< 180 ms) sur place ouvre le menu contextuel macOS classique.")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .toggleStyle(.switch)
+                    .tracking(1.2)
+                    .foregroundStyle(textMuted)
+                Spacer()
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
+            .frame(height: 32)
+            
+            Rectangle().fill(hairline).frame(height: 1)
+            
+            VStack(spacing: 0) {
+                ForEach(RingTheme.allCases) { theme in
+                    themeSelectorRow(theme)
+                    Rectangle().fill(hairline).frame(height: 1)
+                }
+            }
+            
+            // Section 04 : Paramètres Matériels CGEventTap
+            HStack {
+                Text("04 // HID ENGINE PARAMETERS")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1.2)
+                    .foregroundStyle(textMuted)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 32)
+            
+            Rectangle().fill(hairline).frame(height: 1)
+            
+            VStack(spacing: 0) {
+                mechanicalToggleRow(
+                    title: "INSTANT VECTOR TRIGGER",
+                    subtitle: "Exécute à R >= 78pt sans attendre MouseUp",
+                    isOn: $store.instantHoverTrigger
+                )
+                
+                Rectangle().fill(hairline).frame(height: 1)
+                
+                mechanicalToggleRow(
+                    title: "NATIVE PASS-THROUGH (<180ms)",
+                    subtitle: "Clic droit sec au centre ouvre le menu macOS",
+                    isOn: $store.allowQuickRightClickPassThrough
+                )
+                
+                Rectangle().fill(hairline).frame(height: 1)
+            }
             
             Spacer()
         }
     }
     
-    // MARK: - Helpers
+    @ViewBuilder
+    private func themeSelectorRow(_ theme: RingTheme) -> some View {
+        let isSelected = (store.selectedTheme == theme)
+        
+        Button {
+            store.selectedTheme = theme
+        } label: {
+            HStack(spacing: 10) {
+                Text(theme.codeName)
+                    .font(.system(size: 9.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(isSelected ? accentCrimson : textMuted)
+                
+                // Pastilles chromatiques rectangulaires strictes
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color(hex: theme.sliceBackgroundHex))
+                        .frame(width: 12, height: 12)
+                    Rectangle()
+                        .fill(Color(hex: theme.overrideAccentHex ?? 0xF4F4F5))
+                        .frame(width: 12, height: 12)
+                }
+                .overlay(Rectangle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+                
+                Text(theme.displayName)
+                    .font(.system(size: 10.5, weight: isSelected ? .bold : .regular, design: .monospaced))
+                    .foregroundStyle(isSelected ? textPrimary : textMuted)
+                
+                Spacer()
+                
+                Text(isSelected ? "[ACTIVE]" : "")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accentCrimson)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 32)
+            .background(isSelected ? surfaceElevated : surfacePrimary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private func mechanicalToggleRow(title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(textPrimary)
+                    Text(subtitle)
+                        .font(.system(size: 9.5, weight: .regular))
+                        .foregroundStyle(textMuted)
+                }
+                
+                Spacer()
+                
+                // Interrupteur rectangulaire mécanique (Non-Apple Switch)
+                HStack(spacing: 0) {
+                    Text(isOn.wrappedValue ? "ON" : "OFF")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(isOn.wrappedValue ? .white : textMuted)
+                        .frame(width: 36, height: 20)
+                        .background(isOn.wrappedValue ? accentCrimson : surfacePrimary)
+                        .overlay(
+                            Rectangle()
+                                .strokeBorder(isOn.wrappedValue ? accentCrimson : hairline, lineWidth: 1)
+                        )
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 48)
+            .background(surfacePrimary)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Utilitaires Système
     
     @ViewBuilder
     private func appIconView(for profile: AppProfile, size: CGFloat) -> some View {
         if profile.bundleIdentifier == AppProfile.globalBundleID {
-            Image(systemName: "globe")
-                .font(.system(size: size * 0.72, weight: .semibold))
-                .foregroundStyle(crimson)
-                .frame(width: size, height: size)
+            ZStack {
+                Rectangle()
+                    .fill(accentCrimson.opacity(0.15))
+                    .frame(width: size, height: size)
+                    .overlay(Rectangle().strokeBorder(accentCrimson, lineWidth: 1))
+                Text("G")
+                    .font(.system(size: size * 0.55, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accentCrimson)
+            }
         } else if let path = profile.appPath, FileManager.default.fileExists(atPath: path) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: path))
                 .resizable()
@@ -652,16 +765,15 @@ struct SettingsView: View {
                 .resizable()
                 .frame(width: size, height: size)
         } else {
-            Image(systemName: "app.dashed")
-                .font(.system(size: size * 0.72))
-                .foregroundStyle(.secondary)
+            Rectangle()
+                .strokeBorder(hairline, lineWidth: 1)
                 .frame(width: size, height: size)
         }
     }
     
     private func pickApplication() {
         let panel = NSOpenPanel()
-        panel.title = "Choisir une application à configurer dans Indxe"
+        panel.title = "Sélectionner une application cible"
         panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowsMultipleSelection = false

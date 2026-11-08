@@ -5,7 +5,7 @@ import AppKit
 protocol EventTapDelegate: AnyObject {
     func eventTapDidTriggerShow(at screenPoint: CGPoint)
     func eventTapDidMoveCursor(to screenPoint: CGPoint)
-    func eventTapDidTriggerCommit()
+    func eventTapDidTriggerCommit(at screenPoint: CGPoint)
     func eventTapDidCancel()
 }
 
@@ -18,8 +18,9 @@ final class EventTapManager {
     fileprivate var isMenuCurrentlyActive: Bool = false
     fileprivate var pressTimestamp: TimeInterval = 0
     fileprivate var initialPressLocation: CGPoint = .zero
-    fileprivate var didSelectSliceDuringHold: Bool = false
+    fileprivate var maxDisplacement: CGFloat = 0
     
+    /// Signature apposée sur les clics droits synthétiques ré-injectés (Pass-through)
     private let syntheticEventTag: Int64 = 0x494E4458 // "INDX"
     var extraTriggerButtons: Set<Int64> = [2, 3, 4]
     
@@ -36,6 +37,7 @@ final class EventTapManager {
             .rightMouseUp,
             .rightMouseDragged,
             .leftMouseDown,
+            .leftMouseDragged,
             .otherMouseDown,
             .otherMouseUp,
             .otherMouseDragged,
@@ -84,6 +86,13 @@ final class EventTapManager {
         isMenuCurrentlyActive = false
     }
     
+    /// Convertit les coordonnées Quartz (origine en haut à gauche) en coordonnées Cocoa (origine en bas à gauche)
+    private func cocoaScreenPoint(from cgEvent: CGEvent) -> CGPoint {
+        let cgLoc = cgEvent.location
+        let primaryScreenHeight = NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 1080.0
+        return CGPoint(x: cgLoc.x, y: primaryScreenHeight - cgLoc.y)
+    }
+    
     fileprivate func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap = eventTap {
@@ -96,7 +105,15 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
         
-        // Permettre l'annulation avec la touche Échap (53) ou la validation au clic gauche quand le menu est ouvert
+        // Laisse les clics normaux fonctionner dans la fenêtre de configuration d'Indxe
+        if !isMenuCurrentlyActive,
+           NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Bundle.main.bundleIdentifier {
+            return Unmanaged.passUnretained(event)
+        }
+        
+        let currentPoint = cocoaScreenPoint(from: event)
+        
+        // Touche Échap (53) ou clic gauche pendant que le menu est ouvert
         if isMenuCurrentlyActive {
             if type == .keyDown && event.getIntegerValueField(.keyboardEventKeycode) == 53 {
                 isMenuCurrentlyActive = false
@@ -108,7 +125,7 @@ final class EventTapManager {
             if type == .leftMouseDown {
                 isMenuCurrentlyActive = false
                 DispatchQueue.main.async { [weak self] in
-                    self?.delegate?.eventTapDidTriggerCommit()
+                    self?.delegate?.eventTapDidTriggerCommit(at: currentPoint)
                 }
                 return nil
             }
@@ -118,67 +135,52 @@ final class EventTapManager {
         let isRightDown = (type == .rightMouseDown)
         let isOtherDown = (type == .otherMouseDown && extraTriggerButtons.contains(buttonNumber))
         
-        // 1. INTERCEPTION STRICTE DU CLIC DROIT : ouverture ou fermeture du Pie Menu
+        // 1. APPUI SUR LE CLIC DROIT : Ouverture immédiate sous le curseur
         if isRightDown || isOtherDown {
-            if isMenuCurrentlyActive {
-                isMenuCurrentlyActive = false
-                DispatchQueue.main.async { [weak self] in
-                    self?.delegate?.eventTapDidCancel()
-                }
-                return nil
-            }
-            
             isMenuCurrentlyActive = true
             pressTimestamp = ProcessInfo.processInfo.systemUptime
-            let cocoaLocation = NSEvent.mouseLocation
-            initialPressLocation = cocoaLocation
-            didSelectSliceDuringHold = false
+            initialPressLocation = currentPoint
+            maxDisplacement = 0
             
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.eventTapDidTriggerShow(at: cocoaLocation)
+                self?.delegate?.eventTapDidTriggerShow(at: currentPoint)
             }
-            // Bloque à 100% le menu contextuel natif macOS
             return nil
         }
         
-        // 2. MOUVEMENT OU GLISSEMENT DU CURSEUR
-        if isMenuCurrentlyActive && (type == .rightMouseDragged || type == .otherMouseDragged || type == .mouseMoved) {
-            let cocoaLocation = NSEvent.mouseLocation
-            let dist = hypot(cocoaLocation.x - initialPressLocation.x, cocoaLocation.y - initialPressLocation.y)
-            if dist >= 38.0 {
-                didSelectSliceDuringHold = true
+        // 2. GLISSEMENT DU CURSEUR : Mise à jour de la tranche en temps réel
+        if isMenuCurrentlyActive && (
+            type == .rightMouseDragged ||
+            type == .otherMouseDragged ||
+            type == .leftMouseDragged ||
+            type == .mouseMoved
+        ) {
+            let dist = hypot(currentPoint.x - initialPressLocation.x, currentPoint.y - initialPressLocation.y)
+            if dist > maxDisplacement {
+                maxDisplacement = dist
             }
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.eventTapDidMoveCursor(to: cocoaLocation)
+                self?.delegate?.eventTapDidMoveCursor(to: currentPoint)
             }
             return nil
         }
         
-        // 3. RELÂCHEMENT DU CLIC DROIT
+        // 3. RELÂCHEMENT DU CLIC DROIT : Fermeture garantie et exécution de la tranche survolée
         let isRightUp = (type == .rightMouseUp)
         let isOtherUp = (type == .otherMouseUp && extraTriggerButtons.contains(buttonNumber))
         
         if isRightUp || isOtherUp {
             guard isMenuCurrentlyActive else {
-                // Avale toujours le rightMouseUp pour que macOS n'ouvre jamais son menu au relâchement
+                // Si l'action a déjà été déclenchée au survol (Instant Hover), on avale simplement le relâchement
                 return nil
             }
             
+            isMenuCurrentlyActive = false
             let elapsed = ProcessInfo.processInfo.systemUptime - pressTimestamp
             let cgLocation = event.location
             
-            // Si l'utilisateur a déjà glissé sur une tranche pendant qu'il maintenait le clic, on exécute au relâchement
-            if didSelectSliceDuringHold {
-                isMenuCurrentlyActive = false
-                DispatchQueue.main.async { [weak self] in
-                    self?.delegate?.eventTapDidTriggerCommit()
-                }
-                return nil
-            }
-            
-            // Optionnel : si l'utilisateur a explicitement activé le pass-through du clic droit natif dans les réglages
-            if isRightUp && ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 {
-                isMenuCurrentlyActive = false
+            // Si le pass-through est activé dans les réglages et que c'était un clic rapide sans bouger
+            if isRightUp && ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 && maxDisplacement < 15.0 {
                 DispatchQueue.main.async { [weak self] in
                     self?.delegate?.eventTapDidCancel()
                     self?.postNativeRightClick(at: cgLocation)
@@ -186,8 +188,10 @@ final class EventTapManager {
                 return nil
             }
             
-            // Si l'utilisateur a fait un simple clic droit sans bouger : on laisse le Pie Menu ouvert !
-            // Il peut maintenant simplement glisser son curseur sur l'option voulue sans maintenir le bouton.
+            // Dans tous les autres cas : on valide la tranche sous le curseur et on ferme le menu !
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.eventTapDidTriggerCommit(at: currentPoint)
+            }
             return nil
         }
         

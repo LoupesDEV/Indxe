@@ -22,7 +22,6 @@ final class EventTapManager {
     
     /// Signature apposée sur les clics droits synthétiques ré-injectés (Pass-through)
     private let syntheticEventTag: Int64 = 0x494E4458 // "INDX"
-    var extraTriggerButtons: Set<Int64> = [2, 3, 4]
     
     var isRunning: Bool {
         guard let tap = eventTap else { return false }
@@ -38,9 +37,6 @@ final class EventTapManager {
             .rightMouseDragged,
             .leftMouseDown,
             .leftMouseDragged,
-            .otherMouseDown,
-            .otherMouseUp,
-            .otherMouseDragged,
             .mouseMoved,
             .keyDown
         ]
@@ -131,12 +127,8 @@ final class EventTapManager {
             }
         }
         
-        let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
-        let isRightDown = (type == .rightMouseDown)
-        let isOtherDown = (type == .otherMouseDown && extraTriggerButtons.contains(buttonNumber))
-        
-        // 1. APPUI SUR LE CLIC DROIT : Ouverture immédiate sous le curseur
-        if isRightDown || isOtherDown {
+        // 1. APPUI SUR LE CLIC DROIT UNIQUEMENT
+        if type == .rightMouseDown {
             isMenuCurrentlyActive = true
             pressTimestamp = ProcessInfo.processInfo.systemUptime
             initialPressLocation = currentPoint
@@ -148,10 +140,9 @@ final class EventTapManager {
             return nil
         }
         
-        // 2. GLISSEMENT DU CURSEUR : Mise à jour de la tranche en temps réel
+        // 2. GLISSEMENT DU CURSEUR PENDANT QUE LE MENU EST OUVERT
         if isMenuCurrentlyActive && (
             type == .rightMouseDragged ||
-            type == .otherMouseDragged ||
             type == .leftMouseDragged ||
             type == .mouseMoved
         ) {
@@ -165,13 +156,9 @@ final class EventTapManager {
             return nil
         }
         
-        // 3. RELÂCHEMENT DU CLIC DROIT : Fermeture garantie et exécution de la tranche survolée
-        let isRightUp = (type == .rightMouseUp)
-        let isOtherUp = (type == .otherMouseUp && extraTriggerButtons.contains(buttonNumber))
-        
-        if isRightUp || isOtherUp {
+        // 3. RELÂCHEMENT DU CLIC DROIT UNIQUEMENT
+        if type == .rightMouseUp {
             guard isMenuCurrentlyActive else {
-                // Si l'action a déjà été déclenchée au survol (Instant Hover), on avale simplement le relâchement
                 return nil
             }
             
@@ -179,8 +166,7 @@ final class EventTapManager {
             let elapsed = ProcessInfo.processInfo.systemUptime - pressTimestamp
             let cgLocation = event.location
             
-            // Si le pass-through est activé dans les réglages et que c'était un clic rapide sans bouger
-            if isRightUp && ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 && maxDisplacement < 15.0 {
+            if ProfileStore.shared.allowQuickRightClickPassThrough && elapsed < 0.18 && maxDisplacement < 15.0 {
                 DispatchQueue.main.async { [weak self] in
                     self?.delegate?.eventTapDidCancel()
                     self?.postNativeRightClick(at: cgLocation)
@@ -188,7 +174,6 @@ final class EventTapManager {
                 return nil
             }
             
-            // Dans tous les autres cas : on valide la tranche sous le curseur et on ferme le menu !
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.eventTapDidTriggerCommit(at: currentPoint)
             }

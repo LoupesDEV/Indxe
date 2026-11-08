@@ -6,14 +6,20 @@ struct IndxeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        MenuBarExtra("Indxe", systemImage: "circle.hexagongrid.fill") {
+        MenuBarExtra("Indxe", systemImage: appDelegate.isTapActive ? "circle.hexagongrid.fill" : "exclamationmark.triangle.fill") {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Indxe — Actions Ring")
                     .font(.headline)
                 
-                Text("Clic Droit + Glisser → Relâcher sur l'option")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(appDelegate.isTapActive ? Color.green : Color.red)
+                        .frame(width: 8, height: 8)
+                    Text(appDelegate.isTapActive
+                         ? "Statut : Actif (Clic droit intercepté)"
+                         : "Statut : Bloqué par macOS (Accessibilité)")
+                        .font(.caption)
+                }
                 
                 Divider()
                 
@@ -24,6 +30,12 @@ struct IndxeApp: App {
                 
                 Divider()
                 
+                if !appDelegate.isTapActive {
+                    Button("Réparer l'autorisation Accessibilité (Recommandé après un build)") {
+                        appDelegate.resetTCCPermissions()
+                    }
+                }
+                
                 Button("Ouvrir les réglages d'Accessibilité...") {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                         NSWorkspace.shared.open(url)
@@ -31,8 +43,7 @@ struct IndxeApp: App {
                 }
                 
                 Button("Relancer l'écoute matérielle (EventTap)") {
-                    appDelegate.eventTapManager.stop()
-                    appDelegate.checkPermissionsAndStartTap()
+                    appDelegate.checkPermissionsAndStartTap(promptIfNeeded: true)
                 }
                 
                 Divider()

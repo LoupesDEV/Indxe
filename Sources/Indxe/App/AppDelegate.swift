@@ -16,12 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
-        // Réinitialise l'enregistrement d'événement par défaut pour s'assurer que le mode survol est actif
-        UserDefaults.standard.register(defaults: [
-            "instantHoverTrigger": true,
-            "allowQuickRightClickPassThrough": false
-        ])
-        
         setupOverlayPanel()
         checkPermissionsAndStartTap(promptIfNeeded: true)
         startHealthCheckTimer()
@@ -53,7 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
     func checkPermissionsAndStartTap(promptIfNeeded: Bool = false) {
         eventTapManager.delegate = self
         
-        // On tente d'abord de démarrer le CGEventTap directement
         if eventTapManager.start() {
             isTapActive = true
             return
@@ -80,7 +73,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         }
     }
     
-    /// Purge l'entrée TCC obsolète (causée par un rebuild) et redemande proprement la permission à macOS
     func resetTCCPermissions() {
         eventTapManager.stop()
         isTapActive = false
@@ -114,13 +106,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         let shouldCommitImmediately = ringState.updateCursorPosition(screenPoint)
         if shouldCommitImmediately {
             eventTapManager.endActiveSessionImmediately()
-            eventTapDidTriggerCommit()
+            commitCurrentSelection()
         }
     }
     
-    func eventTapDidTriggerCommit() {
+    func eventTapDidTriggerCommit(at screenPoint: CGPoint) {
         guard ringState.isVisible else { return }
-        
+        _ = ringState.updateCursorPosition(screenPoint)
+        commitCurrentSelection()
+    }
+    
+    private func commitCurrentSelection() {
         let selectedIdx = ringState.selectedIndex
         let slices = ringState.activeProfile.slices
         
@@ -129,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, EventTapDelegate {
         
         if let idx = selectedIdx, idx >= 0, idx < slices.count {
             let chosenSlice = slices[idx]
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             ActionExecutor.execute(chosenSlice)
         }
     }

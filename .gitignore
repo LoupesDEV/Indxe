@@ -4,6 +4,8 @@
 ### macOS ###
 # General
 .DS_Store
+.build/
+Indxe.app/
 .AppleDouble
 .LSOverride
 
